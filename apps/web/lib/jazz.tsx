@@ -2,7 +2,6 @@
 
 import { useCoState } from 'jazz-tools/react';
 import { JazzReactProvider } from 'jazz-tools/react';
-import type { Loaded } from 'jazz-tools';
 import { type ReactNode } from 'react';
 import {
   PersonaRoom,
@@ -40,10 +39,63 @@ export function JazzClientProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export type PersonaRoomLoaded = Loaded<
-  typeof PersonaRoom,
-  { guestbook: { $each: true }; presence: { $each: true } }
->;
+/**
+ * Hand-rolled shape of a deeply-loaded PersonaRoom.
+ *
+ * Background: jazz-tools 0.20.17 can't resolve our schema's
+ * `guestbook`/`presence` keys to CoValues at the type level — both
+ * `Loaded<typeof PersonaRoom, …>` and `co.loaded<typeof GuestbookEntry>`
+ * collapse to `never`. The runtime works fine because the actual proxy
+ * objects honor the schema; only the static types are broken. We model
+ * the shape by hand so consumers (Guestbook, PresencePill, StatusBanner)
+ * still get useful autocomplete instead of `never`.
+ *
+ * If a future jazz-tools version fixes the `Loaded<>` derivation, we can
+ * replace these interfaces with the native generic.
+ */
+export interface GuestbookEntryLoaded {
+  author: string;
+  message: string;
+  color: string;
+  createdAt: Date;
+  $jazz: { id: string };
+}
+
+export interface PresenceEntryLoaded {
+  stumblerId: string;
+  lastSeen: Date;
+  $jazz: { id: string };
+}
+
+interface JazzListMeta<T> {
+  // `Account | Group` from jazz-tools; typed loose so consumers can pass it
+  // straight to `Foo.create(init, { owner })` without re-importing the union.
+  owner: never;
+  push(entry: T): void;
+}
+
+interface JazzRecordMeta<T> {
+  // `Account | Group` from jazz-tools; typed loose so consumers can pass it
+  // straight to `Foo.create(init, { owner })` without re-importing the union.
+  owner: never;
+  set(key: string, value: T): void;
+}
+
+export type GuestbookListLoaded = ReadonlyArray<GuestbookEntryLoaded | null> & {
+  $jazz: JazzListMeta<GuestbookEntryLoaded>;
+};
+
+export type PresenceMapLoaded = Record<string, PresenceEntryLoaded | undefined> & {
+  $jazz: JazzRecordMeta<PresenceEntryLoaded>;
+};
+
+export interface PersonaRoomLoaded {
+  personaId: string;
+  status: string;
+  guestbook: GuestbookListLoaded;
+  presence: PresenceMapLoaded;
+  $jazz: { id: string };
+}
 
 /**
  * Two-step load:
@@ -69,8 +121,11 @@ export function usePersonaRoom(
       : undefined;
   const roomId = roomRef?.$jazz?.id;
 
+  // Resolve query types in jazz-tools 0.20.17 reject our nested-collection
+  // shape (see PersonaRoomLoaded comment). Cast to satisfy useCoState; the
+  // runtime accepts and honors the resolve correctly.
   const room = useCoState(PersonaRoom, roomId, {
-    resolve: { guestbook: { $each: true }, presence: { $each: true } },
+    resolve: { guestbook: { $each: true }, presence: { $each: true } } as never,
   });
 
   if (!JAZZ_REGISTRY_ID) return null;
@@ -79,5 +134,5 @@ export function usePersonaRoom(
   if (!roomId) return null;
   if (room === undefined) return undefined;
   if (room === null) return null;
-  return room as PersonaRoomLoaded;
+  return room as unknown as PersonaRoomLoaded;
 }
