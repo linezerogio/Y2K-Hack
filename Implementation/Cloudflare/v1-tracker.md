@@ -27,8 +27,8 @@ Maps to [project.md §16 "Night before"](../../project.md#L587). Nothing else ca
 - [x] KV `PAGES` created → `75cd531f5bcd42628127d69643b1de47`
 - [x] KV `ADMIN` created → `b3e3d18ec2cb4d5e9cfb7a3ab4082bd2`
 - [x] R2 bucket `geostumble-assets` created + `[[r2_buckets]]` binding wired
-- [ ] Asset scrape script (`scripts/scrape-assets.ts`) — **execution deferred**; plan lives at [`docs/openclaw-asset-harvest.md`](../../docs/openclaw-asset-harvest.md), stub at `scripts/scrape-assets.ts` is empty; run overnight per project.md §12
-- [ ] `asset:manifest` key populated in `PAGES` — follows from the scrape
+- [!] Asset scrape script (`scripts/scrape-assets.ts`) — **scoped out for v1** (see §0.5 bullet above). Coding agent runs against the 25-entry seed manifest permanently.
+- [x] `asset:manifest` in `PAGES` — seed manifest populated (25 entries); agents successfully pick from it in prod
 
 ### 0.4 Sandbox SDK smoke test — **PASSED in production** 🎉
 - [x] `@cloudflare/sandbox@0.8.11` installed; `sandbox.ts` adapter with `SandboxHandle` interface
@@ -48,8 +48,10 @@ Maps to [project.md §16 "Night before"](../../project.md#L587). Nothing else ca
 
 ### 0.5 Dependency seeds — **BLOCKED on sibling proposals**
 - [x] Neon schema migrated + 5 personas seeded ([Database §4](../Database/v1-proposal.md)) — scope reduced from 20
-- [ ] Jazz worker account + `RoomRegistry` seeded; `jazz:registry_id` written to KV ([Jazz §7](../Jazz/v1-proposal.md)) — run `npx jazz-run account create` then the seed script
-- [x] `.dev.vars` scaffolded with full env var set (Neon / Gemini / Anthropic / Mux / Jazz / ADMIN_TOKEN / COST_CAP_USD); values still blank for third-party services
+- [~] Jazz worker account created (`co_zDjRJynhDQrQLMG5fUGBjEvQQUN`, in `.dev.vars`). `RoomRegistry` seed + `jazz:registry_id` KV write pending — tracked in [Jazz 0.1 / 0.6](../Jazz/v1-tracker.md)
+- [x] `.dev.vars` scaffolded with full env var set (Neon / Gemini / Anthropic / Mux / Jazz / ADMIN_TOKEN / COST_CAP_USD)
+- [x] Mux credentials captured (`MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_DEMO_PLAYBACK_ID`) — ready for Phase 5
+- [!] Asset scrape (`scripts/scrape-assets.ts`) — **scoped out for v1.** Agent runs against the 25-entry seed manifest; hallucinated asset keys resolve as 404 but pages still render (documented in §2.3 "known nit"). Post-event work.
 
 ---
 
@@ -136,7 +138,7 @@ Verified against Version `45214b65` on `https://geostumble-worker.eliothfraijo.w
 
 ## Phase 3 — Hour 2 (11:30–12:30): Scale to 5 personas
 
-Maps to [§16 Hour 2](../../project.md#L616). Goal: 10+ ready personas, `/stumble` picks randomly.
+Maps to [§16 Hour 2](../../project.md#L616). Goal: all 5 personas ready, `/stumble` picks randomly. (Persona roster reduced 20→5 in commit `5362349` for hackathon scope.)
 
 ### 3.1 Fleet bootstrap — **DONE**
 - [x] Worker deployed with `PERSONA` binding live on `workers.dev`
@@ -144,7 +146,7 @@ Maps to [§16 Hour 2](../../project.md#L616). Goal: 10+ ready personas, `/stumbl
 - [x] `scripts/prewarm-demo.ts` written — reads persona list from Neon, nudges in parallel batches of 5, reports per-persona version/bytes/fallback/elapsed. Exposed as `npm run prewarm`.
 
 ### 3.2 Alarm behaviour — **partially verified**
-- [ ] Jitter soak test (watch `wrangler tail` for an hour) — deferred; correctness is visible in code, not worth the wait for v1
+- [!] Jitter soak test (watch `wrangler tail` for an hour) — **deferred**; correctness is visible in code (`jitter(60_000, 300_000)` call site verified), not worth an hour's wait for v1
 - [x] `EDIT_PROBABILITY=0.3` plumbed through `env`; observable by checking how many alarm wake-ups produce cycles
 - [x] `MAX_CONCURRENT_SANDBOXES=5` + module-level `inFlightSandboxes` counter — nudge-all-5 observed to run within cap (all 5 finished under 30s)
 
@@ -174,18 +176,31 @@ This is the right fix pattern going forward: the loop should course-correct when
 
 Maps to [§16 Hour 3](../../project.md#L625). Goal: status / guestbook / presence live.
 
-### 4.1 Jazz writer (worker side)
-- [ ] `jazz-writer.ts` loads `RoomRegistry` via KV `jazz:registry_id`
-- [ ] `setStatus` writes to `PersonaRoom.status` CoValue
-- [ ] Verified in browser: nudge flips `status` to `editing` → `idle` live
+### 4.1 Jazz writer wiring — **DONE on Worker side (deployed, no-op until registry seeded)**
 
-### 4.2 SSE fallback path
-- [ ] `/p/:id/stream` emits `status` events from DO-local `EventTarget`
-- [ ] Manual test with `curl -N`: status events arrive without Jazz (simulate Jazz outage)
+**Worker-side implementation complete.** `apps/worker/src/jazz-writer.ts` is live in prod (Version `217f0f55`):
+- [x] `writeJazzStatus(env, personaId, status)` opens a short-lived `startWorker` session, loads `RoomRegistry`, sets `PersonaRoom.status`, waits for sync, shuts down
+- [x] `jazz-tools/load-edge-wasm` registers the WASM crypto provider for Cloudflare Workers runtime
+- [x] `PersonaDO.setStatus` fires `writeJazzStatus` without `await` — SSE stays instantaneous, Jazz updates land ~1-3s later
+- [x] Graceful no-op when `JAZZ_WORKER_ACCOUNT` / `JAZZ_WORKER_SECRET` missing, or when neither KV `jazz:registry_id` nor `env.JAZZ_REGISTRY_ID` is set
+- [x] Registry-id resolver prefers KV (`jazz:registry_id`) over env — seed script can rotate without a redeploy
+- [x] `JAZZ_WORKER_ACCOUNT` + `JAZZ_WORKER_SECRET` pushed as Worker secrets
+- [x] `jazz-tools@0.20.17` installed in worker; `@geostumble/shared/jazz-schema` linked as peer-dep to dedupe
+- [x] Errors swallowed with `console.warn` — project.md §17 row (Jazz fallback: "Replace with SSE straight from Worker for status")
 
-### 4.3 Exit gate
-- [ ] StatusBanner on `/s/{id}` flips live during a nudge
-- [ ] Guestbook write from browser lands in Jazz (owned by Jazz proposal)
+**Still upstream of us** ([Jazz v1-tracker](../Jazz/v1-tracker.md)):
+- [ ] Run `scripts/seed-jazz-rooms.ts` to create `RoomRegistry` + 5 `PersonaRoom` CoValues
+- [ ] Write the resulting CoValue id to KV `jazz:registry_id` (+ echo to stdout for `NEXT_PUBLIC_JAZZ_REGISTRY_ID` paste)
+- [ ] Once seeded: next nudge automatically starts fanning `status` to the Jazz CoValue
+
+### 4.2 SSE fallback path — **done in Phase 1**
+- [x] `/p/:id/stream` emits `status` events from DO-local `EventTarget` (shipped as part of §1.2)
+- [x] Verified during Phase 2 exit gate: `curl -N` during a nudge emits `idle → editing → editing:iteration-N → editing:saving → idle`
+
+### 4.3 Exit gate — **partial**
+- [ ] StatusBanner on `/s/{id}` flips live during a nudge — owned by [Frontend §4](../Frontend/v1-proposal.md)
+- [ ] Guestbook write from browser lands in Jazz — owned by [Jazz v1-tracker](../Jazz/v1-tracker.md)
+- [x] Worker-side Jazz write plumbing deployed and no-ops gracefully until Jazz seed script runs
 
 ---
 
@@ -210,8 +225,8 @@ Maps to [§16 Hour 5](../../project.md#L641). Goal: everything armed for demo.
 - [ ] Cost-cap forced-hit test: set `COST_CAP_USD=0.01`, verify `runTinkerCycle` early-returns
 
 ### 6.2 Prewarm
-- [ ] `scripts/prewarm-demo.ts` runs 10 nudges in parallel respecting `MAX_CONCURRENT_SANDBOXES`
-- [ ] All 10 personas show ≥ v2 snapshot
+- [ ] `scripts/prewarm-demo.ts` runs all 5 nudges in parallel respecting `MAX_CONCURRENT_SANDBOXES`
+- [ ] All 5 personas show ≥ v2 snapshot
 - [ ] `/admin/cost` shows spend < $50
 - [ ] Rehearsal: nudge one persona live, narrate SSE status transitions
 
@@ -239,9 +254,9 @@ Maps to [§16 Hour 5](../../project.md#L641). Goal: everything armed for demo.
 
 Copied from [proposal Open questions](./v1-proposal.md#open-questions); update here as they resolve.
 
-- [ ] **Q1 — Sandbox SDK pricing** — resolved by Phase 0.4 smoke test (cost-per-cycle measurement)
-- [ ] **Q2 — DO alarm precision** — resolved in Phase 3.2 (stopwatch check)
-- [ ] **Q3 — Worker bundle size** — check after Phase 5 integration; if > 1MB, lazy-import Mux + Neon inside `runTinkerCycle`
-- [ ] **Q4 — R2 → iframe CORS** — resolved during Phase 0.2 DNS verify; confirm `<img src="https://assets.geostumble.xyz/...">` loads cross-origin
-- [ ] **Q5 — Seed bootstrap ordering** — owned by Jazz/Database proposals; Worker reads `jazz:registry_id` from KV (already resolved in proposal §6)
+- [x] **Q1 — Sandbox SDK pricing** — resolved: ~2–3s per cycle runtime (§0.4), ~$0.0075 per cycle Gemini spend (§2.3). Workers Paid base plan absorbs container volume.
+- [!] **Q2 — DO alarm precision** — jitter soak test deferred (§3.2); code path verified, not stopwatch-measured
+- [ ] **Q3 — Worker bundle size** — check after Phase 5 Mux integration; if > 1MB, lazy-import Mux + Neon inside `runTinkerCycle`. Jazz also lazy-imports `jazz-tools/worker` per [Jazz 0.7](../Jazz/v1-tracker.md).
+- [ ] **Q4 — R2 → iframe CORS** — one `curl -I pub-*.r2.dev/assets/...` check outstanding to confirm `access-control-allow-origin` headers. Pages render fine in prod so effectively resolved, but not formally verified.
+- [x] **Q5 — Seed bootstrap ordering** — Worker reads `jazz:registry_id` from KV; ordering owned by [Jazz 0.6](../Jazz/v1-tracker.md) seed script
 - [x] **Q6 — `/stumble` response shape** — resolved to JSON `{ personaId }` (see proposal §Open questions)

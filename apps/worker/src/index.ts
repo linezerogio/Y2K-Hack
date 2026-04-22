@@ -22,6 +22,10 @@ export interface Env {
   MUX_TOKEN_ID?: string;
   MUX_TOKEN_SECRET?: string;
   MUX_DEMO_PLAYBACK_ID?: string;
+  JAZZ_WORKER_ACCOUNT?: string;
+  JAZZ_WORKER_SECRET?: string;
+  JAZZ_REGISTRY_ID?: string;
+  JAZZ_SYNC_URL?: string;
 }
 
 const META_CACHE_TTL_MS = 5_000;
@@ -31,6 +35,17 @@ const COST_CACHE_TTL_MS = 2_000;
 let costCache: { at: number; value: number } | null = null;
 
 const PERSONA_COUNT = 5;
+
+/**
+ * Option A fallback: coalesce a null muxPlaybackId from old snapshots
+ * onto the shared demo clip. Future per-cycle uploads (V2) will write
+ * real ids that override this.
+ */
+function applyMuxFallback(meta: PersonaMeta, env: Env): PersonaMeta {
+  if (meta.muxPlaybackId) return meta;
+  if (!env.MUX_DEMO_PLAYBACK_ID) return meta;
+  return { ...meta, muxPlaybackId: env.MUX_DEMO_PLAYBACK_ID };
+}
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -75,13 +90,13 @@ async function handleMeta(env: Env, personaId: string): Promise<Response> {
   const cached = metaCache.get(personaId);
   if (cached && now - cached.at < META_CACHE_TTL_MS) {
     if (cached.value === null) return json({ error: 'persona not found' }, 404);
-    return json({ ...cached.value, status: 'idle' });
+    return json({ ...applyMuxFallback(cached.value, env), status: 'idle' });
   }
   try {
     const meta = await getPersonaMeta(env, personaId);
     metaCache.set(personaId, { at: now, value: meta });
     if (!meta) return json({ error: 'persona not found' }, 404);
-    return json({ ...meta, status: 'idle' });
+    return json({ ...applyMuxFallback(meta, env), status: 'idle' });
   } catch (err) {
     return json({ error: 'meta lookup failed', detail: (err as Error).message }, 500);
   }

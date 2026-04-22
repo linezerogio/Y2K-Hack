@@ -9,6 +9,7 @@
     "prewarm": "node --experimental-strip-types scripts/prewarm-demo.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.2"
+    "@neondatabase/serverless": "^1.0.2",
+    "jazz-tools": "^0.20.17"
   }
 }

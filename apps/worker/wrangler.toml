@@ -52,10 +52,15 @@ COST_CAP_USD = "50"
 # R2 public dev URL — injected into the coding-agent system prompt so agents
 # can write <img src="${ASSETS_PUBLIC_URL}/assets/tiles/stars.gif">.
 ASSETS_PUBLIC_URL = "https://pub-7313ad06136f4e89bec6f10ac19488c8.r2.dev"
+# Mux Option A shared demo clip — public playback id, safe to commit. Every
+# persona snapshot reuses this (Mux proposal §Open Q #1). MUX_TOKEN_ID /
+# MUX_TOKEN_SECRET stay in secrets for the V2 per-cycle upload path.
+MUX_DEMO_PLAYBACK_ID = "wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE"
 
-# Secrets (NEON_DATABASE_URL, GEMINI_API_KEY, ANTHROPIC_API_KEY, MUX_*,
-# JAZZ_WORKER_*, JAZZ_REGISTRY_ID, ADMIN_TOKEN) live in .dev.vars locally
-# and are pushed via `wrangler secret put` for the deployed Worker.
+# Secrets (NEON_DATABASE_URL, GEMINI_API_KEY, ANTHROPIC_API_KEY,
+# MUX_TOKEN_ID, MUX_TOKEN_SECRET, JAZZ_WORKER_*, JAZZ_REGISTRY_ID,
+# ADMIN_TOKEN) live in .dev.vars locally and are pushed via
+# `wrangler secret put` for the deployed Worker.
 
 # --- Module rules ------------------------------------------------------------
 # Bundle .md prompts as Text so the coding agent can import them directly.

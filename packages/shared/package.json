@@ -9,7 +9,7 @@
     ".": "./src/index.ts",
     "./jazz-schema": "./src/jazz-schema.ts"
   },
-  "dependencies": {
-    "jazz-tools": "0.20.17"
+  "peerDependencies": {
+    "jazz-tools": ">=0.20.17"
   }
 }
