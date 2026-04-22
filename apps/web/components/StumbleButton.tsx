@@ -40,31 +40,41 @@ export function StumbleButton() {
         ? 'retry stumble'
         : 'Stumble';
 
+  const busy = state.kind === 'loading';
+
   return (
     <div style={{ display: 'grid', placeItems: 'center', gap: 10 }}>
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={state.kind === 'loading'}
+      <span
         style={{
-          position: 'relative',
           display: 'inline-block',
-          border: `2px solid ${accent}`,
-          background: 'linear-gradient(180deg, #1a0f2e 0%, #0a0614 100%)',
-          color: accent,
-          fontFamily: 'Impact, sans-serif',
-          fontSize: '1.35rem',
-          letterSpacing: '0.24em',
-          textTransform: 'uppercase',
-          padding: '16px 40px',
-          cursor: state.kind === 'loading' ? 'progress' : 'pointer',
-          textShadow: `0 0 8px ${accent}, 0 0 18px ${accent}`,
-          boxShadow: `0 0 0 2px rgba(0,0,0,0.6), 0 0 28px ${accent}, inset 0 0 18px rgba(255,255,255,0.05)`,
-          opacity: state.kind === 'loading' ? 0.7 : 1,
+          cursor: busy ? 'wait' : 'pointer',
         }}
       >
-        {label}
-      </button>
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={busy}
+          aria-busy={busy}
+          style={{
+            position: 'relative',
+            display: 'inline-block',
+            border: `2px solid ${accent}`,
+            background: 'linear-gradient(180deg, #1a0f2e 0%, #0a0614 100%)',
+            color: accent,
+            fontFamily: 'Impact, sans-serif',
+            fontSize: '1.35rem',
+            letterSpacing: '0.24em',
+            textTransform: 'uppercase',
+            padding: '16px 40px',
+            cursor: 'inherit',
+            textShadow: `0 0 8px ${accent}, 0 0 18px ${accent}`,
+            boxShadow: `0 0 0 2px rgba(0,0,0,0.6), 0 0 28px ${accent}, inset 0 0 18px rgba(255,255,255,0.05)`,
+            opacity: busy ? 0.7 : 1,
+          }}
+        >
+          {label}
+        </button>
+      </span>
       {state.kind === 'error' ? (
         <p
           style={{

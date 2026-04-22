@@ -6,7 +6,7 @@ import { personaIframeSrc } from '@/lib/worker';
 import type { PersonaMeta } from '@geostumble/shared/types';
 import { CrtFrame } from './CrtFrame';
 import { Guestbook } from './Guestbook';
-import { HeroAnimation } from './HeroAnimation'; // comment this line to disable intro animation
+// import { HeroAnimation } from './HeroAnimation'; // uncomment to enable intro animation
 import { PresencePill } from './PresencePill';
 import { RealPlayerClip } from './RealPlayerClip';
 import { StatusBanner } from './StatusBanner';
@@ -44,24 +44,32 @@ export function ResultShell({ meta }: Props) {
 
   const topBar = (
     <>
-      <button
-        type="button"
-        onClick={stumbleAgain}
-        disabled={stumbling}
+      <span
         style={{
-          background: 'linear-gradient(180deg, #ff67c8 0%, #7e2fc5 100%)',
-          border: '2px solid #3f165d',
-          color: '#fff8dc',
-          font: '700 0.72rem Tahoma, Verdana, sans-serif',
-          letterSpacing: '0.1em',
-          padding: '7px 12px',
-          cursor: stumbling ? 'progress' : 'pointer',
-          textTransform: 'uppercase',
-          opacity: stumbling ? 0.7 : 1,
+          display: 'inline-block',
+          cursor: stumbling ? 'wait' : 'pointer',
         }}
       >
-        {stumbling ? 'dialing...' : 'Stumble Again'}
-      </button>
+        <button
+          type="button"
+          onClick={stumbleAgain}
+          disabled={stumbling}
+          aria-busy={stumbling}
+          style={{
+            background: 'linear-gradient(180deg, #ff67c8 0%, #7e2fc5 100%)',
+            border: '2px solid #3f165d',
+            color: '#fff8dc',
+            font: '700 0.72rem Tahoma, Verdana, sans-serif',
+            letterSpacing: '0.1em',
+            padding: '7px 12px',
+            cursor: 'inherit',
+            textTransform: 'uppercase',
+            opacity: stumbling ? 0.7 : 1,
+          }}
+        >
+          {stumbling ? 'dialing...' : 'Stumble Again'}
+        </button>
+      </span>
       <span>
         {meta.name} <span style={{ opacity: 0.7 }}>- {meta.era}</span>
       </span>
@@ -72,7 +80,7 @@ export function ResultShell({ meta }: Props) {
 
   return (
     <CrtFrame topBar={topBar}>
-      <HeroAnimation /> {/* comment this line to disable intro animation */}
+      {/* <HeroAnimation /> */} {/* uncomment to enable intro animation */}
       <div
         style={{
           display: 'grid',

@@ -50,6 +50,7 @@ export default async function StumbleResultPage({
               letterSpacing: '0.16em',
               textTransform: 'uppercase',
               textShadow: '0 0 8px #ff67c8',
+              cursor: 'pointer',
             }}
           >
             stumble again
