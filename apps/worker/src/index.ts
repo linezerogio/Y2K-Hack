@@ -19,6 +19,9 @@ export interface Env {
   COST_CAP_USD?: string;
   ASSETS_PUBLIC_URL?: string;
   ADMIN_TOKEN?: string;
+  MUX_TOKEN_ID?: string;
+  MUX_TOKEN_SECRET?: string;
+  MUX_DEMO_PLAYBACK_ID?: string;
 }
 
 const META_CACHE_TTL_MS = 5_000;

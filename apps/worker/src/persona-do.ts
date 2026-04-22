@@ -189,7 +189,7 @@ export class PersonaDO implements DurableObject {
         personaId: persona.id,
         version,
         htmlKvKey: `page:${persona.id}:v${version}`,
-        muxPlaybackId: null, // populated in Phase 5
+        muxPlaybackId: this.env.MUX_DEMO_PLAYBACK_ID ?? null, // Option A: shared demo clip
         sandboxLog: transcript,
         tokenCostUsd,
       });
