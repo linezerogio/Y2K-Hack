@@ -1,0 +1,33 @@
+# Cloudflare Worker — local dev secrets. Copy to .dev.vars and fill in.
+# For deployed Worker, use `wrangler secret put <NAME>` instead.
+# See Implementation/Cloudflare/v1-proposal.md §6 for the full table.
+
+# --- Database ---
+# Neon pooled connection string (the one with -pooler in the host).
+NEON_DATABASE_URL=postgres://user:password@host-pooler.neon.tech/geostumble
+
+# --- LLM ---
+# Primary: Gemini 2.5 Flash.
+GEMINI_API_KEY=
+# Fallback: Claude Haiku. Only used on Gemini 429s.
+ANTHROPIC_API_KEY=
+
+# --- Video ---
+# Mux dev environment access token.
+MUX_TOKEN_ID=
+MUX_TOKEN_SECRET=
+
+# --- Jazz ---
+# Shared sync server.
+JAZZ_SYNC_URL=wss://cloud.jazz.tools/sync
+# Worker account — created via `npx jazz-run account create`.
+JAZZ_WORKER_ACCOUNT=
+JAZZ_WORKER_SECRET=
+# RoomRegistry CoValue id — emitted by the Jazz seed script.
+JAZZ_REGISTRY_ID=
+
+# --- Admin / safety ---
+# Bearer token for /admin/* routes. Generate locally, keep long + random.
+ADMIN_TOKEN=change-me-to-a-long-random-string
+# Kill-switch threshold in USD. costCapHit() freezes alarms above this.
+COST_CAP_USD=50
