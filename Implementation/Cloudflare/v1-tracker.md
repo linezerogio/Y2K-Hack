@@ -75,10 +75,21 @@ Maps to [§16 Hour 0](../../project.md#L600). Goal: `curl p.geostumble.xyz/p/dav
 - [x] Hardcoded HTML pre-populated at `page:dave-001:current` via `wrangler kv key put --remote`
 - [x] `ready:dave-001` sentinel also written so `/stumble` returns a non-empty pool
 
-### 1.3 Exit gate
-- [ ] `curl https://<worker-url>/p/dave-001` returns 200 HTML (requires `wrangler dev` or deploy)
-- [ ] `curl https://<worker-url>/health` returns `{ ok: true, personaCount: 20, poolSize: >=1 }`
-- [ ] `curl -H "Authorization: Bearer $ADMIN_TOKEN" https://<worker-url>/admin/cost` returns `{ totalUsd: 0, cached: false }`
+### 1.3 Exit gate — **PASSED in production** 🎉
+
+Verified against `https://geostumble-worker.eliothfraijo.workers.dev` (Version `833338e6`):
+
+- [x] `GET /p/dave-001` → 200, 1130 bytes of placeholder HTML
+- [x] `GET /health` → `{ ok: true, personaCount: 20, poolSize: 1 }`
+- [x] `GET /stumble` → `{ personaId: "dave-001" }`
+- [x] `GET /p/dave-001/meta` → `{ personaId, name: "Dave", era: "1999-Q3", version: 0, muxPlaybackId: null, status: "idle" }`
+- [x] `GET /admin/cost` (bearer) → `{ totalUsd: 0, cached: false }`
+- [x] `GET /p/unknown-999` → 404
+- [x] `GET /p/unknown-999/meta` → 404
+- [x] `GET /admin/freeze` without bearer → 401
+
+#### Bug fixed during exit-gate verification
+- `PersonaDO.serveCurrentPage` was reading `page:${this.state.id.toString()}:current`, but `state.id` is the opaque DO hash (not the persona name passed to `idFromName`). Patched to parse `personaId` from the request URL path and pass into `serveCurrentPage`. Same pattern will be needed in Phase 2 for `runTinkerCycle` — store personaId in DO storage on first hit.
 
 ---
 

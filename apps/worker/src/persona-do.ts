@@ -11,9 +11,10 @@ export class PersonaDO implements DurableObject {
 
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
+    const personaId = extractPersonaId(url.pathname);
     if (url.pathname.endsWith('/nudge')) return this.adminNudge();
     if (url.pathname.endsWith('/stream')) return this.statusStream();
-    return this.serveCurrentPage();
+    return this.serveCurrentPage(personaId);
   }
 
   async alarm(): Promise<void> {
@@ -27,8 +28,8 @@ export class PersonaDO implements DurableObject {
     await this.state.storage.setAlarm(Date.now() + jitter(60_000, 300_000));
   }
 
-  private async serveCurrentPage(): Promise<Response> {
-    const personaId = this.state.id.toString();
+  private async serveCurrentPage(personaId: string | null): Promise<Response> {
+    if (!personaId) return new Response('bad request', { status: 400 });
     const html = await this.env.PAGES.get(`page:${personaId}:current`);
     if (!html) return new Response('persona has no page yet', { status: 404 });
     return new Response(html, {
@@ -77,4 +78,9 @@ export class PersonaDO implements DurableObject {
 
 function jitter(minMs: number, maxMs: number): number {
   return minMs + Math.random() * (maxMs - minMs);
+}
+
+function extractPersonaId(pathname: string): string | null {
+  const m = pathname.match(/^\/p\/([^/]+)/);
+  return m ? m[1]! : null;
 }
