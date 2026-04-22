@@ -204,14 +204,35 @@ Maps to [§16 Hour 3](../../project.md#L625). Goal: status / guestbook / presenc
 
 ---
 
-## Phase 5 — Hour 4 (13:30–14:30): Polish + Mux
+## Phase 5 — Hour 4 (13:30–14:30): Polish + Mux — **OPTION A LIVE** 🎉
 
 Maps to [§16 Hour 4](../../project.md#L632). Worker-side deliverables only — player is Frontend.
 
+### 5.1 Option A: shared demo clip — **DONE**
+- [x] `apps/worker/src/mux.ts` — direct-upload REST client (fetch + Basic auth, staying under Worker 1MB bundle)
+- [x] `scripts/upload-demo-mp4.ts` — one-off seed that uploads `assets/demo/demo-agent.mp4` and prints the public `playback_id`
+- [x] `MUX_DEMO_PLAYBACK_ID = "wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE"` wired into `wrangler.toml [vars]`
+- [x] `runTinkerCycle` passes `env.MUX_DEMO_PLAYBACK_ID ?? null` to `recordSnapshot` — every new `page_snapshots` row gets the shared id
+- [x] `/p/:id/meta` surfaces `muxPlaybackId` from the latest snapshot via the existing `getPersonaMeta` query
+
+**Verified across all 5 personas (Version `217f0f55`):**
+
+| Persona | Latest version | `muxPlaybackId` |
+|---|---|---|
+| becky-002 | v4 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| dave-001 | v10 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| harold-005 | v7 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| linda-004 | v3 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| tyler-003 | v4 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+
+**Graceful degradation:** Option A can't fail at nudge time — the playback id is an env var, not an API call. If `MUX_DEMO_PLAYBACK_ID` is ever unset, `recordSnapshot` persists `null` and the frontend's `<RealPlayerClip>` should hide the player (per [frontend-worker-integration.md §8](../../docs/frontend-worker-integration.md)).
+
+### 5.2 Option B: per-cycle recording — **deferred to V2**
 - [ ] Recorder captures sandbox shell session (`sessions/{id}/v{n}.cast` on R2)
-- [ ] Mux upload after each cycle; `mux_playback_id` written to `page_snapshots`
-- [ ] `/p/:id/meta` surfaces latest `muxPlaybackId`
-- [ ] Graceful degradation: if Mux upload fails, snapshot is still written with `mux_playback_id = NULL`
+- [ ] Mux upload after each cycle replaces the shared id with a per-snapshot `mux_playback_id`
+- [ ] `apps/worker/src/recorder.ts` empty; `mux.ts` already has the `createUpload` / `waitForAsset` helpers ready to consume
+
+Option A is demo-sufficient and cheaper ($0 per cycle vs $0.005 per cycle Mux storage/streaming). Keep Option B as a V2 polish item if the demo needs genuinely per-persona clips.
 
 ---
 

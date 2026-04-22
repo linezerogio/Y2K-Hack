@@ -36,12 +36,14 @@ Maps to [project.md §16 "Night before"](../../project.md#L587) · "Jazz worker 
 - [ ] **Permission model** (review finding #5): schema shape supports split groups, but actual `everyone: writer` group-binding happens at seed time (0.6) — the schema just declares the references. Don't forget to create guestbook/presence under child groups when seeding.
 - [ ] `tsc --noEmit` clean across `apps/worker` + `packages/shared` once worker imports the schema
 
-### 0.4 Worker-side writer (`apps/worker/src/jazz-writer.ts`)
-- [ ] `getJazzWorker(env)` memoizes `startWorker(...)` at module scope
-- [ ] `writeStatus(env, personaId, status)` loads `RoomRegistry` by id, resolves `PersonaRoom`, sets `status`
-- [ ] All errors caught + logged (fire-and-forget safe; never throws into `runTinkerCycle`)
-- [ ] Silent no-op when `RoomRegistry` key missing (seed not yet run)
-- [ ] Lazy-import `jazz-tools/worker` inside `writeStatus` if Wrangler bundle nears size limit (review finding #9)
+### 0.4 Worker-side writer (`apps/worker/src/jazz-writer.ts`) — **DONE**
+- [x] `writeJazzStatus(env, personaId, status)` opens short-lived worker session per call, loads `RoomRegistry`, resolves `PersonaRoom`, sets `status`, waits for sync, shuts down. ~1–3s per call.
+- [x] All errors caught + logged via `console.warn('[jazz-writer]', ...)`; never throws into `runTinkerCycle`
+- [x] Silent no-op when `JAZZ_WORKER_ACCOUNT`/`JAZZ_WORKER_SECRET` or `RoomRegistry` id missing
+- [x] Registry id resolved from KV (`jazz:registry_id`) first, `JAZZ_REGISTRY_ID` env var fallback
+- [x] `edge-wasm` side-effect import for Cloudflare Worker crypto provider
+- [~] **Note:** proposal suggested module-scope memoization (`workerPromise ??= startWorker(...)`). Current impl creates + destroys per call — simpler, avoids DO-lifetime socket management, but costs a handshake per setStatus (~6× per cycle). Fine for v1; optimize only if we see it break.
+- [x] Not using lazy-import — bundle check (0.7) passed at 890 KiB gzipped, well under limit
 
 ### 0.5 Browser provider (`apps/web/lib/jazz.ts`)
 - [ ] `createJazzReactContext` (or current equivalent) with `auth="anonymous"`, `storage="indexedDB"`
@@ -49,19 +51,23 @@ Maps to [project.md §16 "Night before"](../../project.md#L587) · "Jazz worker 
 - [ ] Anonymous account secret persists to `localStorage` — verify by reloading twice and confirming same account id
 - [ ] `useCoState` exported for component use
 
-### 0.6 Seed script (`scripts/seed-jazz-rooms.ts`)
-- [ ] Boots worker Jazz client with the runtime account
-- [ ] Reads personas from Neon — **5 personas** (not 20; post commit `5362349`)
-- [ ] Creates one `RoomRegistry` CoValue; logs id to stdout
-- [ ] Per persona: creates `GuestbookList`, `PresenceMap`, `PersonaRoom`; sets registry entry keyed by `personaId` (e.g. `dave-001`), not DO hex id
-- [ ] Child CoValue groups set so `everyone: writer` applies to guestbook + presence only
-- [ ] Idempotent: re-running reuses existing registry from KV; only seeds rooms missing from registry
-- [ ] Output: `JAZZ_REGISTRY_ID` pasted into `apps/worker/.dev.vars` + `apps/web/.env.local` (`NEXT_PUBLIC_JAZZ_REGISTRY_ID`)
-- [ ] Also written to KV `jazz:registry_id` (Cloudflare tracker 0.5 depends on this)
+### 0.6 Seed script (`scripts/seed-jazz-rooms.ts`) — **DONE** 🎉
+- [x] Script at `scripts/seed-jazz-rooms.ts`, exposed as `npm run seed:jazz`
+- [x] Boots Jazz worker via `startWorker()` with creds from env / `.dev.vars`
+- [x] Reads 5 personas from Neon: `becky-002, dave-001, harold-005, linda-004, tyler-003`
+- [x] Creates `RoomRegistry` on first run; logs id + paste-in instructions for `.dev.vars` + KV
+- [x] Per persona: creates `Group.makePublic('writer')` → `GuestbookList` + `PresenceMap` under it → `PersonaRoom` owned by worker (so `status` stays worker-write-only per review finding #5)
+- [x] Registry keyed by `personaId` (e.g. `dave-001`)
+- [x] Idempotent: re-run with `JAZZ_REGISTRY_ID` set → loads registry, skips personas already present. Verified: second run reports `✓ seeded 0 new, 5 already present`.
+- [x] `RoomRegistry ID: co_zAMBDSKQyYEvJ1FZetCbXzcGPku`
+- [x] Written to `apps/worker/.dev.vars` (`JAZZ_REGISTRY_ID`)
+- [x] Pushed to production KV: `PAGES['jazz:registry_id'] = co_zAMBDSKQyYEvJ1FZetCbXzcGPku`
+- [ ] `NEXT_PUBLIC_JAZZ_REGISTRY_ID` in `apps/web/.env.local` — deferred until web app scaffolded
 
-### 0.7 Bundle size check
-- [ ] `wrangler deploy --dry-run` run after jazz-writer wired → bundle still under Worker limit
-- [ ] If over: lazy-import `jazz-tools/worker` per 0.4
+### 0.7 Bundle size check — **PASSED**
+- [x] `wrangler deploy --dry-run` → **Total Upload: 3442.36 KiB / gzip: 889.61 KiB** — well under 10 MiB paid-plan limit
+- [x] Jazz `cojson_core_wasm.wasm` (435 KiB) is the largest single asset; acceptable
+- [x] Lazy-import not required
 
 ### 0.8 Phase 0 exit gate
 - [ ] Round-trip test: standalone Node script writes a `GuestbookEntry`, throwaway page reads it via `useCoState`
