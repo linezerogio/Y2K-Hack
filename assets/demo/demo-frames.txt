@@ -1,0 +1,18 @@
+> list_assets tags=[space, dark]
+> list_assets tags=[space, dark]
+found: stars-blue.gif, galaxy-tile.gif
+found: stars-blue.gif, galaxy-tile.gif
+> write_file /workspace/index.html
+> write_file /workspace/index.html
+<html><body bgcolor=#000080>
+<html><body bgcolor=#000080>
+<marquee>WELCOME!!!</marquee>
+<marquee>WELCOME!!!</marquee>
+> validate_html
+> validate_html
+tidy: 0 errors, 3 warnings
+tidy: 0 errors, 3 warnings
+> done
+> done
+* * * AGENT DONE * * *
+* * * AGENT DONE * * *
