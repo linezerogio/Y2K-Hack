@@ -188,10 +188,12 @@ Maps to [§16 Hour 3](../../project.md#L625). Goal: status / guestbook / presenc
 - [x] `jazz-tools@0.20.17` installed in worker; `@geostumble/shared/jazz-schema` linked as peer-dep to dedupe
 - [x] Errors swallowed with `console.warn` — project.md §17 row (Jazz fallback: "Replace with SSE straight from Worker for status")
 
-**Still upstream of us** ([Jazz v1-tracker](../Jazz/v1-tracker.md)):
-- [ ] Run `scripts/seed-jazz-rooms.ts` to create `RoomRegistry` + 5 `PersonaRoom` CoValues
-- [ ] Write the resulting CoValue id to KV `jazz:registry_id` (+ echo to stdout for `NEXT_PUBLIC_JAZZ_REGISTRY_ID` paste)
-- [ ] Once seeded: next nudge automatically starts fanning `status` to the Jazz CoValue
+**Upstream status** ([Jazz v1-tracker](../Jazz/v1-tracker.md)):
+- [x] `scripts/seed-jazz-rooms.ts` shipped; ran successfully. `RoomRegistry ID: co_zAMBDSKQyYEvJ1FZetCbXzcGPku`
+- [x] CoValue id written to prod KV `PAGES['jazz:registry_id']` — Worker resolves it on next call
+- [x] Bundle check: 890 KiB gzipped (Jazz 0.7), well under paid-plan limit
+- [ ] Redeploy worker + live-verify: `POST /admin/nudge/:id` produces a `PersonaRoom.status` transition observable from a Jazz client
+- [ ] `NEXT_PUBLIC_JAZZ_REGISTRY_ID` in `apps/web/.env.local` — deferred until Frontend scaffolds web app
 
 ### 4.2 SSE fallback path — **done in Phase 1**
 - [x] `/p/:id/stream` emits `status` events from DO-local `EventTarget` (shipped as part of §1.2)

@@ -69,10 +69,13 @@ Maps to [project.md §16 "Night before"](../../project.md#L587) · "Jazz worker 
 - [x] Jazz `cojson_core_wasm.wasm` (435 KiB) is the largest single asset; acceptable
 - [x] Lazy-import not required
 
-### 0.8 Phase 0 exit gate
-- [ ] Round-trip test: standalone Node script writes a `GuestbookEntry`, throwaway page reads it via `useCoState`
-- [ ] DO can call `writeStatus` without crashing the `runTinkerCycle` (no-op when registry missing, logs when present)
-- [ ] `JAZZ_REGISTRY_ID` is set everywhere it needs to be
+### 0.8 Phase 0 exit gate — **PASSED** (worker side)
+- [x] `writeJazzStatus` wired into `PersonaDO.setStatus` ([persona-do.ts:256](../../apps/worker/src/persona-do.ts)) — fire-and-forget via `void this.state.storage.get<string>('personaId').then(...)`
+- [x] Worker typechecks clean (`tsc --noEmit`)
+- [x] All Jazz secrets present in prod Wrangler: `JAZZ_WORKER_ACCOUNT`, `JAZZ_WORKER_SECRET`
+- [x] `JAZZ_REGISTRY_ID` resolvable from prod KV (`jazz:registry_id`)
+- [ ] Browser-side round-trip (`GuestbookEntry` write → `useCoState` read) — blocked on Frontend scaffold
+- [ ] Live nudge → prod Jazz status update observable — deploy-and-verify pending
 
 ---
 
@@ -80,11 +83,11 @@ Maps to [project.md §16 "Night before"](../../project.md#L587) · "Jazz worker 
 
 Maps to [§16 Hour 3](../../project.md#L625). Assumes Phase 0 green. Pure UI work + one line in the DO.
 
-### 4.1 Wire writer into PersonaDO (+0–10m)
-- [ ] `persona-do.ts` `onStep` callback calls `writeStatus(env, personaId, step)` — **fire-and-forget** (`void writeStatus(...)`, no `await`; review finding #7)
-- [ ] Also called on `setStatus('editing')` and `setStatus('idle')` in `runTinkerCycle`
-- [ ] Verify via `wrangler tail`: `POST /admin/nudge/dave-001` produces status writes without stalling the agent loop
-- [ ] Jazz dashboard (or second test tab) shows status transitions in <1s
+### 4.1 Wire writer into PersonaDO (+0–10m) — **CODE DONE; verification pending**
+- [x] `setStatus` calls `writeJazzStatus` via `void ... .then()` — fire-and-forget (no await on agent hot path)
+- [x] Covers `setStatus('editing')`, `setStatus('editing:agent')`, `onStep` callback `setStatus('editing:${s}')`, `setStatus('editing:saving')`, `setStatus('idle')` — all 5 transitions per cycle
+- [ ] Verify via `wrangler tail`: `POST /admin/nudge/dave-001` produces Jazz writes without stalling the agent loop
+- [ ] Second browser tab subscribed to `PersonaRoom.status` shows live transitions in <1s
 
 ### 4.2 Guestbook component (+10–30m)
 - [ ] `apps/web/components/Guestbook.tsx` subscribes via `useCoState(PersonaRoom, roomId, { guestbook: [{}] })`
