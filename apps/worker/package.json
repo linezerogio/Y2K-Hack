@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@cloudflare/sandbox": "^0.8.11",
+    "@geostumble/shared": "file:../../packages/shared",
     "@google/genai": "^1.50.1",
     "@neondatabase/serverless": "^1.1.0",
     "jazz-tools": "^0.20.17"

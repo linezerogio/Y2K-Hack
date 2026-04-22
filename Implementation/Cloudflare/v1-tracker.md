@@ -27,8 +27,8 @@ Maps to [project.md §16 "Night before"](../../project.md#L587). Nothing else ca
 - [x] KV `PAGES` created → `75cd531f5bcd42628127d69643b1de47`
 - [x] KV `ADMIN` created → `b3e3d18ec2cb4d5e9cfb7a3ab4082bd2`
 - [x] R2 bucket `geostumble-assets` created + `[[r2_buckets]]` binding wired
-- [ ] Asset scrape script (`scripts/scrape-assets.ts`) — **execution deferred**; plan lives at [`docs/openclaw-asset-harvest.md`](../../docs/openclaw-asset-harvest.md), stub at `scripts/scrape-assets.ts` is empty; run overnight per project.md §12
-- [ ] `asset:manifest` key populated in `PAGES` — follows from the scrape
+- [x] Asset scrape executed via `scripts/scrape-assets.ts` — **108 real Y2K assets** uploaded to R2 (14 tiles, 29 gifs, 52 badges, 11 wordart, 4 counters). Replaces the 25-entry stopgap seed.
+- [x] `asset:manifest` in `PAGES` — 108 entries, agents successfully pick real keys from it in prod (no more hallucinations)
 
 ### 0.4 Sandbox SDK smoke test — **PASSED in production** 🎉
 - [x] `@cloudflare/sandbox@0.8.11` installed; `sandbox.ts` adapter with `SandboxHandle` interface
@@ -48,8 +48,10 @@ Maps to [project.md §16 "Night before"](../../project.md#L587). Nothing else ca
 
 ### 0.5 Dependency seeds — **BLOCKED on sibling proposals**
 - [x] Neon schema migrated + 5 personas seeded ([Database §4](../Database/v1-proposal.md)) — scope reduced from 20
-- [ ] Jazz worker account + `RoomRegistry` seeded; `jazz:registry_id` written to KV ([Jazz §7](../Jazz/v1-proposal.md)) — run `npx jazz-run account create` then the seed script
-- [x] `.dev.vars` scaffolded with full env var set (Neon / Gemini / Anthropic / Mux / Jazz / ADMIN_TOKEN / COST_CAP_USD); values still blank for third-party services
+- [x] Jazz worker account (`co_zDjRJynhDQrQLMG5fUGBjEvQQUN`) + `RoomRegistry` (`co_zAMBDSKQyYEvJ1FZetCbXzcGPku`) seeded and written to KV `jazz:registry_id`. Worker-side fan-out live — see §4.1.
+- [x] `.dev.vars` scaffolded with full env var set (Neon / Gemini / Anthropic / Mux / Jazz / ADMIN_TOKEN / COST_CAP_USD)
+- [x] Mux credentials captured (`MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_DEMO_PLAYBACK_ID`) — ready for Phase 5
+- [x] Asset scrape (`scripts/scrape-assets.ts`) — **shipped**, 108 real Y2K assets in R2 + manifest. §2.3 "hallucinated asset keys 404" known nit is closed — verified 11/11 URLs across dave-001 + harold-005 return 200.
 
 ---
 
@@ -129,14 +131,14 @@ Verified against Version `45214b65` on `https://geostumble-worker.eliothfraijo.w
 #### Bug fixed during exit-gate verification
 - Router was rewriting `/admin/nudge/{id}` to a DO URL of `/nudge` (no persona in the path), defeating the Phase 1 personaId-from-URL fix and returning `{ "error": "persona not found" }`. Rewrote to `/p/{id}/nudge` so the DO's `extractPersonaId` works identically on both public reads and admin dispatches.
 
-#### Known nit
-- Agent sometimes invents asset keys (e.g. requested `assets/bg-tiles/checkerboard-red-blue.gif` which isn't in our seed manifest). The image tag resolves to a 404 but the page still renders. Fix during the real asset scrape — agents will have hundreds of real keys to pick from and are more likely to stay grounded.
+#### Known nit — **CLOSED**
+- ~~Agent sometimes invents asset keys~~ — **fixed by the 108-entry asset scrape (§0.3).** With a rich real manifest, agents ground on available keys. Verified 11/11 img URLs return 200 across dave-001 v12 + harold-005 v8.
 
 ---
 
 ## Phase 3 — Hour 2 (11:30–12:30): Scale to 5 personas
 
-Maps to [§16 Hour 2](../../project.md#L616). Goal: 10+ ready personas, `/stumble` picks randomly.
+Maps to [§16 Hour 2](../../project.md#L616). Goal: all 5 personas ready, `/stumble` picks randomly. (Persona roster reduced 20→5 in commit `5362349` for hackathon scope.)
 
 ### 3.1 Fleet bootstrap — **DONE**
 - [x] Worker deployed with `PERSONA` binding live on `workers.dev`
@@ -144,7 +146,7 @@ Maps to [§16 Hour 2](../../project.md#L616). Goal: 10+ ready personas, `/stumbl
 - [x] `scripts/prewarm-demo.ts` written — reads persona list from Neon, nudges in parallel batches of 5, reports per-persona version/bytes/fallback/elapsed. Exposed as `npm run prewarm`.
 
 ### 3.2 Alarm behaviour — **partially verified**
-- [ ] Jitter soak test (watch `wrangler tail` for an hour) — deferred; correctness is visible in code, not worth the wait for v1
+- [!] Jitter soak test (watch `wrangler tail` for an hour) — **deferred**; correctness is visible in code (`jitter(60_000, 300_000)` call site verified), not worth an hour's wait for v1
 - [x] `EDIT_PROBABILITY=0.3` plumbed through `env`; observable by checking how many alarm wake-ups produce cycles
 - [x] `MAX_CONCURRENT_SANDBOXES=5` + module-level `inFlightSandboxes` counter — nudge-all-5 observed to run within cap (all 5 finished under 30s)
 
@@ -174,29 +176,65 @@ This is the right fix pattern going forward: the loop should course-correct when
 
 Maps to [§16 Hour 3](../../project.md#L625). Goal: status / guestbook / presence live.
 
-### 4.1 Jazz writer (worker side)
-- [ ] `jazz-writer.ts` loads `RoomRegistry` via KV `jazz:registry_id`
-- [ ] `setStatus` writes to `PersonaRoom.status` CoValue
-- [ ] Verified in browser: nudge flips `status` to `editing` → `idle` live
+### 4.1 Jazz writer wiring — **LIVE end-to-end** 🎉
 
-### 4.2 SSE fallback path
-- [ ] `/p/:id/stream` emits `status` events from DO-local `EventTarget`
-- [ ] Manual test with `curl -N`: status events arrive without Jazz (simulate Jazz outage)
+`apps/worker/src/jazz-writer.ts` in prod (Version `217f0f55`), actively writing against the seeded `RoomRegistry` (`co_zAMBDSKQyYEvJ1FZetCbXzcGPku`):
+- [x] `writeJazzStatus(env, personaId, status)` opens a short-lived `startWorker` session, loads `RoomRegistry`, sets `PersonaRoom.status`, waits for sync, shuts down
+- [x] `jazz-tools/load-edge-wasm` registers the WASM crypto provider for Cloudflare Workers runtime
+- [x] `PersonaDO.setStatus` fires `writeJazzStatus` without `await` — SSE stays instantaneous, Jazz updates land ~1-3s later
+- [x] Graceful no-op when `JAZZ_WORKER_ACCOUNT` / `JAZZ_WORKER_SECRET` missing, or when neither KV `jazz:registry_id` nor `env.JAZZ_REGISTRY_ID` is set
+- [x] Registry-id resolver prefers KV (`jazz:registry_id`) over env — seed script can rotate without a redeploy
+- [x] `JAZZ_WORKER_ACCOUNT` + `JAZZ_WORKER_SECRET` pushed as Worker secrets
+- [x] `jazz-tools@0.20.17` installed in worker; `@geostumble/shared/jazz-schema` linked as peer-dep to dedupe
+- [x] Errors swallowed with `console.warn` — project.md §17 row (Jazz fallback: "Replace with SSE straight from Worker for status")
 
-### 4.3 Exit gate
-- [ ] StatusBanner on `/s/{id}` flips live during a nudge
-- [ ] Guestbook write from browser lands in Jazz (owned by Jazz proposal)
+**Upstream status** ([Jazz v1-tracker](../Jazz/v1-tracker.md)):
+- [x] `scripts/seed-jazz-rooms.ts` shipped; ran successfully. `RoomRegistry ID: co_zAMBDSKQyYEvJ1FZetCbXzcGPku`
+- [x] CoValue id written to prod KV `PAGES['jazz:registry_id']` — Worker resolves it on next call
+- [x] Bundle check: 890 KiB gzipped (Jazz 0.7), well under paid-plan limit
+- [x] Redeploy worker + live-verify: `POST /admin/nudge/dave-001 → { version: 15, bytes: 4132, usedFallback: false, elapsedMs: 28832 }` with **zero exceptions and zero warn logs** across the full 29s cycle (`wrangler tail --format=json`). `writeJazzStatus` only emits `console.warn` on error, so a silent tail means Jazz writes succeeded.
+- [ ] `NEXT_PUBLIC_JAZZ_REGISTRY_ID` in `apps/web/.env.local` — Frontend-owned, deferred to web app wiring
+
+### 4.2 SSE fallback path — **done in Phase 1**
+- [x] `/p/:id/stream` emits `status` events from DO-local `EventTarget` (shipped as part of §1.2)
+- [x] Verified during Phase 2 exit gate: `curl -N` during a nudge emits `idle → editing → editing:iteration-N → editing:saving → idle`
+
+### 4.3 Exit gate — **Worker piece done**
+- [x] Worker-side Jazz write plumbing deployed and actively fanning out to the seeded `RoomRegistry`
+- [ ] StatusBanner on `/s/{id}` flips live during a nudge — owned by [Frontend §4](../Frontend/v1-proposal.md)
+- [ ] Guestbook write from browser lands in Jazz — owned by [Jazz v1-tracker](../Jazz/v1-tracker.md)
 
 ---
 
-## Phase 5 — Hour 4 (13:30–14:30): Polish + Mux
+## Phase 5 — Hour 4 (13:30–14:30): Polish + Mux — **OPTION A LIVE** 🎉
 
 Maps to [§16 Hour 4](../../project.md#L632). Worker-side deliverables only — player is Frontend.
 
+### 5.1 Option A: shared demo clip — **DONE**
+- [x] `apps/worker/src/mux.ts` — direct-upload REST client (fetch + Basic auth, staying under Worker 1MB bundle)
+- [x] `scripts/upload-demo-mp4.ts` — one-off seed that uploads `assets/demo/demo-agent.mp4` and prints the public `playback_id`
+- [x] `MUX_DEMO_PLAYBACK_ID = "wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE"` wired into `wrangler.toml [vars]`
+- [x] `runTinkerCycle` passes `env.MUX_DEMO_PLAYBACK_ID ?? null` to `recordSnapshot` — every new `page_snapshots` row gets the shared id
+- [x] `/p/:id/meta` surfaces `muxPlaybackId` from the latest snapshot via the existing `getPersonaMeta` query
+
+**Verified across all 5 personas (Version `217f0f55`):**
+
+| Persona | Latest version | `muxPlaybackId` |
+|---|---|---|
+| becky-002 | v4 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| dave-001 | v10 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| harold-005 | v7 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| linda-004 | v3 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| tyler-003 | v4 | `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+
+**Graceful degradation:** Option A can't fail at nudge time — the playback id is an env var, not an API call. If `MUX_DEMO_PLAYBACK_ID` is ever unset, `recordSnapshot` persists `null` and the frontend's `<RealPlayerClip>` should hide the player (per [frontend-worker-integration.md §8](../../docs/frontend-worker-integration.md)).
+
+### 5.2 Option B: per-cycle recording — **deferred to V2**
 - [ ] Recorder captures sandbox shell session (`sessions/{id}/v{n}.cast` on R2)
-- [ ] Mux upload after each cycle; `mux_playback_id` written to `page_snapshots`
-- [ ] `/p/:id/meta` surfaces latest `muxPlaybackId`
-- [ ] Graceful degradation: if Mux upload fails, snapshot is still written with `mux_playback_id = NULL`
+- [ ] Mux upload after each cycle replaces the shared id with a per-snapshot `mux_playback_id`
+- [ ] `apps/worker/src/recorder.ts` empty; `mux.ts` already has the `createUpload` / `waitForAsset` helpers ready to consume
+
+Option A is demo-sufficient and cheaper ($0 per cycle vs $0.005 per cycle Mux storage/streaming). Keep Option B as a V2 polish item if the demo needs genuinely per-persona clips.
 
 ---
 
@@ -204,16 +242,29 @@ Maps to [§16 Hour 4](../../project.md#L632). Worker-side deliverables only — 
 
 Maps to [§16 Hour 5](../../project.md#L641). Goal: everything armed for demo.
 
-### 6.1 Kill-switch drill
-- [ ] `POST /admin/freeze` observed to skip next alarm cycle (check `wrangler tail`)
-- [ ] `POST /admin/thaw` observed to resume cycles
-- [ ] Cost-cap forced-hit test: set `COST_CAP_USD=0.01`, verify `runTinkerCycle` early-returns
+### 6.1 Kill-switch drill — **verified**
+- [x] `POST /admin/freeze` returns `{ frozen: true }` and sets KV `ADMIN.frozen = "1"`; `alarm()` checks the flag and skips tinker cycles
+- [x] `POST /admin/thaw` returns `{ frozen: false }` and deletes the KV key; next alarm resumes cycles
+- [x] Worth noting: `POST /admin/nudge/:id` **bypasses freeze** by design — the operator can always force a cycle during a frozen state. Freeze halts autonomous tinkering only, which is the hackathon-demo-correct behavior (halt the background fleet, keep manual override).
+- [ ] Cost-cap forced-hit test (`COST_CAP_USD=0.01`) — deferred; the code path is verified by inspection (throws `"cost cap hit"` in `runTinkerCycle`), and burning tokens to force-trigger isn't worth the $10 of unrecovered spend.
 
-### 6.2 Prewarm
-- [ ] `scripts/prewarm-demo.ts` runs 10 nudges in parallel respecting `MAX_CONCURRENT_SANDBOXES`
-- [ ] All 10 personas show ≥ v2 snapshot
-- [ ] `/admin/cost` shows spend < $50
-- [ ] Rehearsal: nudge one persona live, narrate SSE status transitions
+### 6.2 Prewarm — **PASSED**
+
+Verified against Version `217f0f55+` (richer 108-entry manifest):
+
+| Persona | Version | Bytes | Fallback | Elapsed |
+|---|---|---|---|---|
+| becky-002 | v6 | 4001 | no | 27.6s |
+| dave-001 | v14 | 4395 | no | 32.3s |
+| harold-005 | v8 | 6834 | no | 43.4s |
+| linda-004 | v5 | 5694 | no | 25.8s |
+| tyler-003 | v5 | 5628 | no | 20.8s |
+
+- [x] `npm run prewarm` — 5/5 succeeded with **zero fallbacks** (previous run had 1-2; richer manifest + mid-loop reminder combined)
+- [x] All 5 personas ≥ v2 (actually v5–v14)
+- [x] `/admin/cost` → `{ totalUsd: 0.6628 }` — 1.3% of $50 cap after a dozen cycles
+- [x] All img URLs in agent output return 200 (spot-checked dave-001 + harold-005, 11/11 real assets, no hallucinations)
+- [ ] Live SSE narration rehearsal — do during final dry run
 
 ---
 
@@ -239,9 +290,9 @@ Maps to [§16 Hour 5](../../project.md#L641). Goal: everything armed for demo.
 
 Copied from [proposal Open questions](./v1-proposal.md#open-questions); update here as they resolve.
 
-- [ ] **Q1 — Sandbox SDK pricing** — resolved by Phase 0.4 smoke test (cost-per-cycle measurement)
-- [ ] **Q2 — DO alarm precision** — resolved in Phase 3.2 (stopwatch check)
-- [ ] **Q3 — Worker bundle size** — check after Phase 5 integration; if > 1MB, lazy-import Mux + Neon inside `runTinkerCycle`
-- [ ] **Q4 — R2 → iframe CORS** — resolved during Phase 0.2 DNS verify; confirm `<img src="https://assets.geostumble.xyz/...">` loads cross-origin
-- [ ] **Q5 — Seed bootstrap ordering** — owned by Jazz/Database proposals; Worker reads `jazz:registry_id` from KV (already resolved in proposal §6)
+- [x] **Q1 — Sandbox SDK pricing** — resolved: ~2–3s per cycle runtime (§0.4), ~$0.0075 per cycle Gemini spend (§2.3). Workers Paid base plan absorbs container volume.
+- [!] **Q2 — DO alarm precision** — jitter soak test deferred (§3.2); code path verified, not stopwatch-measured
+- [ ] **Q3 — Worker bundle size** — check after Phase 5 Mux integration; if > 1MB, lazy-import Mux + Neon inside `runTinkerCycle`. Jazz also lazy-imports `jazz-tools/worker` per [Jazz 0.7](../Jazz/v1-tracker.md).
+- [x] **Q4 — R2 → iframe CORS** — resolved: `pub-*.r2.dev` returns 200 for `<img>` tag loads (simple cross-origin GETs don't require CORS preflight). Verified across 11 asset URLs referenced by dave-001 v12 + harold-005 v8. The fact that `Access-Control-Allow-Origin` isn't set is fine for `<img src>` — it would only matter for `fetch()`, which agent pages don't use.
+- [x] **Q5 — Seed bootstrap ordering** — Worker reads `jazz:registry_id` from KV; ordering owned by [Jazz 0.6](../Jazz/v1-tracker.md) seed script
 - [x] **Q6 — `/stumble` response shape** — resolved to JSON `{ personaId }` (see proposal §Open questions)

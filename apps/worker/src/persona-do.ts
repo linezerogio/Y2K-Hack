@@ -1,5 +1,6 @@
 import { runCodingAgent, fallbackTemplate } from './coding-agent';
 import type { Env } from './index';
+import { writeJazzStatus } from './jazz-writer';
 import {
   getLatestVersion,
   loadPersonaFromNeon,
@@ -255,7 +256,16 @@ export class PersonaDO implements DurableObject {
   private setStatus(status: string): void {
     this.status = status;
     this.statusEvents.dispatchEvent(new CustomEvent('status', { detail: status }));
-    // Jazz write fan-out lands in Phase 4.1.
+    // Jazz fan-out: persona's id was stashed on first fetch. Fire-and-forget
+    // so a slow Jazz sync doesn't block the status transition.
+    void this.state.storage.get<string>('personaId').then(async (personaId) => {
+      if (!personaId) return;
+      try {
+        await writeJazzStatus(this.env, personaId, status);
+      } catch (err) {
+        console.warn('[setStatus jazz fan-out]', (err as Error).message);
+      }
+    });
   }
 }
 

@@ -1,0 +1,176 @@
+/**
+ * retro.css — Y2K chrome for the Vercel shell.
+ *
+ * The *persona pages* served by the Worker do their own styling (table
+ * layouts, <marquee>, Comic Sans). Everything here styles the frame AROUND
+ * that iframe: the landing page, result-page sidebar, RealPlayer chrome.
+ */
+
+/* ---------- CRT flicker + scanlines ---------- */
+
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.97; }
+}
+
+.crt-flicker {
+  animation: crt-flicker 0.15s infinite steps(2);
+}
+
+.scanlines {
+  position: relative;
+}
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.12) 2px,
+    rgba(0, 0, 0, 0.12) 3px
+  );
+  z-index: 10;
+}
+
+/* ---------- Beveled buttons (Windows 98 / GeoCities) ---------- */
+
+.bevel {
+  background: #c0c0c0;
+  color: #000;
+  border: 3px outset #dfdfdf;
+  font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
+  font-weight: bold;
+  padding: 10px 28px;
+  cursor: pointer;
+}
+.bevel:active {
+  border-style: inset;
+}
+
+/* Big green STUMBLE button on the landing page */
+.bevel-lime {
+  background: #00c800;
+  color: #000;
+  border: 4px outset #66ff66;
+  font-family: "Impact", "Arial Black", sans-serif;
+  font-size: 2.25rem;
+  letter-spacing: 2px;
+  padding: 18px 48px;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 #ffffff80;
+}
+.bevel-lime:active {
+  border-style: inset;
+  transform: translateY(1px);
+}
+.bevel-lime:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+/* ---------- RealPlayer 8 chrome (for Mux clip) ---------- */
+
+.realplayer {
+  border: 2px outset #c0c0c0;
+  background: linear-gradient(to bottom, #2c2c2c, #0a0a0a);
+  color: #fff;
+  font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
+  width: 320px;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+.realplayer-titlebar {
+  background: linear-gradient(to right, #000080, #1084d0);
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  letter-spacing: 0.5px;
+}
+
+.realplayer-titlebar-buttons {
+  display: flex;
+  gap: 2px;
+}
+.realplayer-titlebar-buttons span {
+  display: inline-block;
+  width: 14px;
+  height: 12px;
+  background: #c0c0c0;
+  border: 1px outset #dfdfdf;
+  text-align: center;
+  font-size: 9px;
+  line-height: 10px;
+  color: #000;
+}
+
+.realplayer-body {
+  background: #000;
+  padding: 4px;
+}
+
+.realplayer-statusbar {
+  background: #c0c0c0;
+  color: #000;
+  border-top: 1px solid #808080;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Pixelated scaling for the player — keeps CRT feel at 240p */
+.realplayer mux-player {
+  --controls: none;
+  --seek-backward-button: none;
+  --seek-forward-button: none;
+  --playback-rate-button: none;
+  --pip-button: none;
+  --fullscreen-button: none;
+  display: block;
+  width: 100%;
+  height: 240px;
+  image-rendering: pixelated;
+}
+
+/* ---------- Simulated <blink> (most browsers killed the tag) ---------- */
+
+@keyframes blink-tag {
+  0%, 49% { visibility: visible; }
+  50%, 100% { visibility: hidden; }
+}
+.blink {
+  animation: blink-tag 1s step-end infinite;
+}
+
+/* ---------- Landing page banner ---------- */
+
+.banner-crt {
+  font-family: "Impact", "Arial Black", sans-serif;
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  letter-spacing: 4px;
+  text-shadow:
+    0 0 4px #00ff00,
+    0 0 12px #00ff00aa,
+    2px 0 #ff00ff66,
+    -2px 0 #00ffff66;
+}
+
+/* ---------- Hit counter digits ---------- */
+
+.counter {
+  display: inline-block;
+  font-family: "Courier New", monospace;
+  background: #000;
+  color: #00ff00;
+  border: 1px inset #666;
+  padding: 1px 4px;
+  letter-spacing: 2px;
+}
