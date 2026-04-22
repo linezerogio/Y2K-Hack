@@ -49,45 +49,10 @@ export default function Home() {
           <div
             style={{
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              color: "#fff16a",
-              fontFamily: "Impact, sans-serif",
-              letterSpacing: "0.2em",
-              fontSize: "0.9rem",
-            }}
-          >
-            <span
-              style={{
-                padding: "4px 10px",
-                border: "2px solid #fff16a",
-                color: "#fff16a",
-                textShadow: "0 0 8px #fff16a",
-              }}
-            >
-              HOME 03
-            </span>
-            <span style={{ color: "#73efff", textShadow: "0 0 8px #73efff" }}>
-              Q1 // LIVE // 4TH AND GOAL
-            </span>
-            <span
-              style={{
-                padding: "4px 10px",
-                border: "2px solid #ff67c8",
-                color: "#ff67c8",
-                textShadow: "0 0 8px #ff67c8",
-              }}
-            >
-              AWAY 99
-            </span>
-          </div>
-          <div
-            style={{
-              display: "flex",
               justifyContent: "center",
               alignItems: "center",
               gap: 8,
-              padding: "8px 0",
+              padding: "24px 0",
               background:
                 "radial-gradient(circle at 50% 50%, rgba(255,103,200,0.14) 0%, transparent 70%)",
               borderTop: "1px dashed rgba(255,103,200,0.4)",
@@ -109,7 +74,7 @@ export default function Home() {
                     padding: "4px 6px",
                     background: "rgba(0,0,0,0.6)",
                     border: `2px solid ${color}`,
-                    textShadow: `0 0 10px ${color}, 0 0 22px ${color}`,
+                    textShadow: `0 0 5px ${color}, 0 0 11px ${color}`,
                     boxShadow: `0 0 16px ${color}, inset 0 0 10px rgba(0,0,0,0.6)`,
                     letterSpacing: "0.04em",
                   }}
@@ -131,7 +96,7 @@ export default function Home() {
                 maxWidth: 620,
               }}
             >
-              HALFTIME SHOW // RANDOM PERSONAL HOMEPAGES //
+              NOW BROADCASTING // RANDOM PERSONAL HOMEPAGES //
               <br />
               ONE CLICK, INSTANT ERA SHOCK
             </p>
@@ -157,7 +122,7 @@ export default function Home() {
               }}
             >
               TICKER // guestbook online // presence stable // mux encoding clean //
-              next kickoff in 00:00:04 // powered by workers + jazz + mux //
+              next stumble in 00:00:04 // powered by workers + jazz + mux //
             </span>
           </div>
         </div>
