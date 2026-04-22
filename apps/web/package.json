@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@mux/mux-player-react": "^3.5.4",
+    "jazz-tools": "^0.20.17",
     "next": "^15.5.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

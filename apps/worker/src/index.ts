@@ -47,32 +47,59 @@ function applyMuxFallback(meta: PersonaMeta, env: Env): PersonaMeta {
   return { ...meta, muxPlaybackId: env.MUX_DEMO_PLAYBACK_ID };
 }
 
+/**
+ * CORS for the Next.js frontend (`NEXT_PUBLIC_WORKER_URL` lives on a
+ * different origin). We permissively allow any origin for GET/HEAD/OPTIONS
+ * since the worker exposes read-only + admin routes — admin routes are
+ * gated by `ADMIN_TOKEN` so CORS is not the access control.
+ */
+const CORS_HEADERS: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, HEAD, POST, OPTIONS',
+  'access-control-allow-headers': 'content-type, authorization',
+  'access-control-max-age': '86400',
+};
+
+function withCors(res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v);
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     const url = new URL(req.url);
     const { pathname } = url;
 
-    if (pathname === '/health') return handleHealth(env);
-    if (pathname === '/stumble') return handleStumble(env);
-    if (pathname === '/admin/smoke/sandbox') return handleSandboxSmoke(req, env);
-    if (pathname.startsWith('/admin/debug/transcript/')) return handleTranscript(req, env, pathname);
+    if (pathname === '/health') return withCors(await handleHealth(env));
+    if (pathname === '/stumble') return withCors(await handleStumble(env));
+    if (pathname === '/admin/smoke/sandbox') return withCors(await handleSandboxSmoke(req, env));
+    if (pathname.startsWith('/admin/debug/transcript/')) return withCors(await handleTranscript(req, env, pathname));
 
     const metaMatch = pathname.match(/^\/p\/([^/]+)\/meta$/);
     if (metaMatch) {
       const [, personaId] = metaMatch;
-      return handleMeta(env, personaId);
+      return withCors(await handleMeta(env, personaId));
     }
 
     const pageMatch = pathname.match(/^\/p\/([^/]+)(\/.*)?$/);
     if (pageMatch) {
       const [, personaId] = pageMatch;
       const stub = env.PERSONA.get(env.PERSONA.idFromName(personaId));
-      return stub.fetch(req);
+      return withCors(await stub.fetch(req));
     }
 
-    if (pathname.startsWith('/admin/')) return handleAdmin(req, env);
+    if (pathname.startsWith('/admin/')) return withCors(await handleAdmin(req, env));
 
-    return new Response('not found', { status: 404 });
+    return withCors(new Response('not found', { status: 404 }));
   },
 } satisfies ExportedHandler<Env>;
 

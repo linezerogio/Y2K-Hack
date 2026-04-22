@@ -76,6 +76,15 @@ const { worker, shutdownWorker } = await startWorker({
 });
 
 try {
+  // Group with `everyone: reader` — owns the RoomRegistry and each
+  // PersonaRoom so anonymous browser clients can load them without
+  // auth. The worker account is still the group admin, so it retains
+  // exclusive write on `status` (which is a field on PersonaRoom).
+  // Guestbook + presence live in their own `everyone: writer` groups
+  // so stumblers can post/heartbeat (review finding #5).
+  const readerGroup = Group.create({ owner: worker });
+  readerGroup.makePublic('reader');
+
   let registry: Awaited<ReturnType<typeof RoomRegistry.load>>;
   if (JAZZ_REGISTRY_ID) {
     console.log(`\nloading existing registry ${JAZZ_REGISTRY_ID}`);
@@ -85,8 +94,8 @@ try {
       process.exit(1);
     }
   } else {
-    console.log('\nno JAZZ_REGISTRY_ID set — creating new registry');
-    registry = RoomRegistry.create({}, worker);
+    console.log('\nno JAZZ_REGISTRY_ID set — creating new public-reader registry');
+    registry = RoomRegistry.create({}, readerGroup);
   }
 
   const registryId = registry.$jazz.id;
@@ -101,15 +110,15 @@ try {
       continue;
     }
 
-    const publicGroup = Group.create({ owner: worker });
-    publicGroup.makePublic('writer');
+    const writerGroup = Group.create({ owner: worker });
+    writerGroup.makePublic('writer');
 
-    const guestbook = GuestbookList.create([], { owner: publicGroup });
-    const presence = PresenceMap.create({}, { owner: publicGroup });
+    const guestbook = GuestbookList.create([], { owner: writerGroup });
+    const presence = PresenceMap.create({}, { owner: writerGroup });
 
     const room = PersonaRoom.create(
       { personaId, status: 'idle', guestbook, presence },
-      { owner: worker },
+      { owner: readerGroup },
     );
 
     registry.$jazz.set(personaId, room);

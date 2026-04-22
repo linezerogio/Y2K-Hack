@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { JazzClientProvider } from "@/lib/jazz";
 
 export const metadata: Metadata = {
   title: "GeoStumble",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <JazzClientProvider>{children}</JazzClientProvider>
+      </body>
     </html>
   );
 }

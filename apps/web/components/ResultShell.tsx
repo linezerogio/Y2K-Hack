@@ -6,6 +6,7 @@ import { personaIframeSrc } from '@/lib/worker';
 import type { PersonaMeta } from '@geostumble/shared/types';
 import { CrtFrame } from './CrtFrame';
 import { Guestbook } from './Guestbook';
+import { HeroAnimation } from './HeroAnimation'; // comment this line to disable intro animation
 import { PresencePill } from './PresencePill';
 import { RealPlayerClip } from './RealPlayerClip';
 import { StatusBanner } from './StatusBanner';
@@ -65,12 +66,13 @@ export function ResultShell({ meta }: Props) {
         {meta.name} <span style={{ opacity: 0.7 }}>- {meta.era}</span>
       </span>
       <span style={{ opacity: 0.7 }}>v{meta.version}</span>
-      <PresencePill />
+      <PresencePill personaId={meta.personaId} />
     </>
   );
 
   return (
     <CrtFrame topBar={topBar}>
+      <HeroAnimation /> {/* comment this line to disable intro animation */}
       <div
         style={{
           display: 'grid',

@@ -1,16 +1,38 @@
+'use client';
+
+import dynamic from 'next/dynamic';
+import { useState } from 'react';
+
 /**
- * "Making Of" panel. Renders nothing when muxPlaybackId is null so the
- * sidebar doesn't show a broken embed during Phase 5 rollout.
- *
- * When Phase 5 lands and a playbackId shows up, this component will be
- * upgraded to lazy-import @mux/mux-player-react wrapped in the RealPlayer
- * 8 table chrome (see Implementation/Mux + project.md §13).
+ * Dynamically imported so the ~250kB Mux player stays out of the
+ * initial bundle. Only personas with a `muxPlaybackId` render this
+ * component at all (see ResultShell), so the import is effectively
+ * scoped to the "Making Of" panel.
  */
+const MuxPlayer = dynamic(
+  () => import('@mux/mux-player-react').then((m) => m.default),
+  {
+    ssr: false,
+    loading: () => (
+      <p style={{ margin: 0, color: '#b4bed1', fontSize: '0.7rem' }}>
+        loading tape...
+      </p>
+    ),
+  },
+);
+
 type Props = {
   muxPlaybackId: string | null;
 };
 
+/**
+ * "Making Of" clip. Wrapped in a RealPlayer-8-ish chrome (chrome
+ * described in project.md §13). Muted by default + explicit Play so
+ * the demo never starts audio on page load.
+ */
 export function RealPlayerClip({ muxPlaybackId }: Props) {
+  const [playing, setPlaying] = useState(false);
+
   if (!muxPlaybackId) return null;
 
   return (
@@ -29,19 +51,71 @@ export function RealPlayerClip({ muxPlaybackId }: Props) {
       </p>
       <div
         style={{
-          border: '2px solid rgba(255,255,255,0.28)',
-          background: 'linear-gradient(180deg, #1f2638 0%, #0e1320 100%)',
-          padding: 10,
-          fontFamily: 'Tahoma, Verdana, sans-serif',
-          fontSize: '0.76rem',
-          lineHeight: 1.45,
+          border: '2px solid #c89eff',
+          background:
+            'linear-gradient(180deg, #3a3054 0%, #1a1226 100%)',
+          padding: 8,
+          boxShadow:
+            'inset 0 0 0 1px rgba(255,255,255,0.18), 0 0 14px rgba(200,158,255,0.25)',
+          display: 'grid',
+          gap: 6,
         }}
       >
-        <p style={{ margin: '0 0 6px', color: '#d3ffff' }}>
-          RealPlayer (muted) - playbackId {muxPlaybackId}
-        </p>
-        <p style={{ margin: 0, color: '#b4bed1' }}>
-          rewinding tape... @mux/mux-player-react wiring ships in Phase 5.
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontFamily: 'Tahoma, Verdana, sans-serif',
+            fontSize: '0.66rem',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: '#1b1330',
+            background:
+              'linear-gradient(180deg, #e4dff2 0%, #b5a6d4 100%)',
+            padding: '3px 7px',
+            border: '1px solid #5a4780',
+          }}
+        >
+          <span>RealPlayer 8 - geostumble.rm</span>
+          <span style={{ opacity: 0.75 }}>- _ x</span>
+        </div>
+        <div
+          style={{
+            position: 'relative',
+            background: '#000',
+            border: '1px solid rgba(255,255,255,0.18)',
+            minHeight: 120,
+            imageRendering: 'pixelated',
+          }}
+        >
+          <MuxPlayer
+            playbackId={muxPlaybackId}
+            streamType="on-demand"
+            muted
+            autoPlay={false}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            style={{
+              width: '100%',
+              aspectRatio: '16 / 9',
+              display: 'block',
+            }}
+            metadata={{
+              video_title: 'making of',
+              player_name: 'geostumble-realplayer',
+            }}
+          />
+        </div>
+        <p
+          style={{
+            margin: 0,
+            font: '0.66rem Tahoma, Verdana, sans-serif',
+            color: '#cdb8e8',
+            letterSpacing: '0.06em',
+          }}
+        >
+          {playing ? 'playing - 28.8 kbps' : 'press play to rewind tape'}
         </p>
       </div>
     </div>

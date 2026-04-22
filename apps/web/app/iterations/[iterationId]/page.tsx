@@ -5446,10 +5446,10 @@ function Iteration41LandingJumbotron() {
                 textShadow: "0 0 8px #fff16a",
               }}
             >
-              HOME 03
+              ONLINE 03
             </span>
             <span style={{ color: "#73efff", textShadow: "0 0 8px #73efff" }}>
-              Q1 // LIVE // 4TH AND GOAL
+              CH1 // LIVE // NOW SURFING
             </span>
             <span
               style={{
@@ -5459,7 +5459,7 @@ function Iteration41LandingJumbotron() {
                 textShadow: "0 0 8px #ff67c8",
               }}
             >
-              AWAY 99
+              HITS 99
             </span>
           </div>
           <div
@@ -5512,7 +5512,7 @@ function Iteration41LandingJumbotron() {
                 maxWidth: 620,
               }}
             >
-              HALFTIME SHOW // RANDOM PERSONAL HOMEPAGES //
+              NOW BROADCASTING // RANDOM PERSONAL HOMEPAGES //
               <br />
               ONE CLICK, INSTANT ERA SHOCK
             </p>
@@ -5538,7 +5538,7 @@ function Iteration41LandingJumbotron() {
               }}
             >
               TICKER // guestbook online // presence stable // mux encoding
-              clean // next kickoff in 00:00:04 // powered by workers + jazz +
+              clean // next stumble in 00:00:04 // powered by workers + jazz +
               mux //
             </span>
           </div>

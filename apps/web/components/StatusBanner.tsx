@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { personaStatusStreamUrl } from '@/lib/worker';
 import type { PersonaStatus } from '@geostumble/shared/types';
+import { JAZZ_REGISTRY_ID, usePersonaRoom } from '@/lib/jazz';
 
 type Props = {
   personaId: string;
@@ -11,42 +13,65 @@ type Props = {
 };
 
 /**
- * Subscribes to the Worker's SSE stream at /p/:id/stream and renders the
- * UNDER CONSTRUCTION bar when status is anything other than "idle".
+ * UNDER CONSTRUCTION banner.
  *
- * This is the pre-Jazz path: once PersonaRoom.status is wired in Phase 4,
- * swap the EventSource subscription for a Jazz useCoState hook and keep
- * the same visual treatment.
+ * Primary source: PersonaRoom.status via Jazz. Fallback: the Worker's
+ * SSE stream at `/p/:id/stream`. The fallback runs when any of these
+ * hold:
+ *   - `NEXT_PUBLIC_JAZZ_REGISTRY_ID` is missing
+ *   - the query string has `?nojazz=1`
+ *   - the Jazz room hasn't loaded yet (still undefined/null)
+ *
+ * Project.md §17 keeps SSE authoritative for the demo so a cold Jazz
+ * peer never blocks the construction animation.
  */
 export function StatusBanner({ personaId, initialStatus }: Props) {
-  const [status, setStatus] = useState<PersonaStatus>(initialStatus ?? 'idle');
-  const [connected, setConnected] = useState(false);
+  const params = useSearchParams();
+  const nojazz = params?.get('nojazz') === '1';
+
+  const jazzEnabled = Boolean(JAZZ_REGISTRY_ID) && !nojazz;
+  const room = usePersonaRoom(personaId);
+  const jazzStatus = (room?.status as PersonaStatus | undefined) ?? null;
+
+  const [sseStatus, setSseStatus] = useState<PersonaStatus>(
+    initialStatus ?? 'idle',
+  );
+  const [sseConnected, setSseConnected] = useState(false);
+
+  // Need SSE when Jazz is disabled or still linking up.
+  const useSSE = !jazzEnabled || jazzStatus === null;
 
   useEffect(() => {
+    if (!useSSE) return;
     const es = new EventSource(personaStatusStreamUrl(personaId));
-
     const onStatus = (e: MessageEvent) => {
-      setStatus((e.data as PersonaStatus) ?? 'idle');
+      setSseStatus((e.data as PersonaStatus) ?? 'idle');
     };
-    const onOpen = () => setConnected(true);
-    const onError = () => setConnected(false);
-
+    const onOpen = () => setSseConnected(true);
+    const onError = () => setSseConnected(false);
     es.addEventListener('status', onStatus as EventListener);
     es.addEventListener('open', onOpen);
     es.addEventListener('error', onError);
-
     return () => {
       es.removeEventListener('status', onStatus as EventListener);
       es.removeEventListener('open', onOpen);
       es.removeEventListener('error', onError);
       es.close();
     };
-  }, [personaId]);
+  }, [personaId, useSSE]);
 
+  const status: PersonaStatus = jazzStatus ?? sseStatus;
   const isEditing = status !== 'idle';
-  const substep = typeof status === 'string' && status.startsWith('editing:')
-    ? status.slice('editing:'.length)
-    : null;
+  const substep =
+    typeof status === 'string' && status.startsWith('editing:')
+      ? status.slice('editing:'.length)
+      : null;
+
+  const source: string = jazzEnabled && jazzStatus !== null
+    ? '● jazz'
+    : sseConnected
+      ? '● sse'
+      : '○ link';
 
   return (
     <div
@@ -87,7 +112,13 @@ export function StatusBanner({ personaId, initialStatus }: Props) {
         <span>idle - page is settled</span>
       )}
       <span
-        title={connected ? 'SSE live' : 'SSE reconnecting'}
+        title={
+          jazzEnabled && jazzStatus !== null
+            ? 'Jazz live'
+            : sseConnected
+              ? 'SSE live'
+              : 'SSE reconnecting'
+        }
         style={{
           marginLeft: 'auto',
           fontSize: '0.62rem',
@@ -95,7 +126,7 @@ export function StatusBanner({ personaId, initialStatus }: Props) {
           opacity: 0.7,
         }}
       >
-        {connected ? '● live' : '○ link'}
+        {source}
       </span>
     </div>
   );

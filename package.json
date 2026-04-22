@@ -11,6 +11,7 @@
     "prewarm": "node --experimental-strip-types scripts/prewarm-demo.ts"
   },
   "dependencies": {
+    "@mux/mux-player-react": "^3.11.8",
     "@neondatabase/serverless": "^1.0.2",
     "jazz-tools": "^0.20.17"
   }
