@@ -195,6 +195,6 @@ Tailwind for everything else (spacing, flex on the sidebar — yes, flex is fine
 
 ## 11. Open questions for the team
 
-1. **Jazz registry bootstrap** — who runs the seed script, and when is `NEXT_PUBLIC_JAZZ_REGISTRY_ID` frozen? Blocks Hour 3.
-2. **`/p/:id/meta`** — does the Worker expose persona name + latest Mux ID in one call, or two? Cheapest is one.
-3. **Stumble randomness** — is `/stumble` a 302 (spec §8) or JSON? `/api/stumble` needs to know. Proposal: Worker returns JSON `{ personaId }`, we drop the redirect — easier for Next.js to consume and keeps the URL clean.
+1. ~~**Jazz registry bootstrap**~~ — **resolved**: seed script ran, `NEXT_PUBLIC_JAZZ_REGISTRY_ID=co_zAMBDSKQyYEvJ1FZetCbXzcGPku` is frozen. See §6.
+2. ~~**`/p/:id/meta`**~~ — **resolved**: one call. Shape `{ personaId, name, era, version, muxPlaybackId, status }`. Live at `GET /p/:id/meta` with a 5s cache. See [`docs/frontend-worker-integration.md`](../../docs/frontend-worker-integration.md).
+3. ~~**Stumble randomness**~~ — **resolved to JSON**: `GET /stumble` returns `{ personaId }`, not a 302. Matches this proposal's recommendation.
