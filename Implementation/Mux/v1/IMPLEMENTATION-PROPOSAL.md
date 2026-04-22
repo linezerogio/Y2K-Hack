@@ -12,7 +12,9 @@
 
 Mux turns every coding-agent run into a replayable "making of" clip embedded on the persona page. This is the single most narratively valuable sponsor integration: without it, the claim "the AI wrote this page" is invisible; with it, judges see the agent type.
 
-Flow: the Worker's `recorder.ts` captures the agent's sandbox session (asciinema `.cast` → rendered to MP4), uploads to Mux via direct-upload URL, persists the returned `playback_id` on `page_snapshots`, and the Vercel UI renders `<mux-player playback-id={id} />` inside a Y2K RealPlayer-styled frame.
+**v1 ships Option A** (see [§Open questions](#open-questions)): one shared demo clip uploaded ahead of time, reused across every persona snapshot via `MUX_DEMO_PLAYBACK_ID`. The `recorder.ts` → `asciinema-agg` → per-cycle upload path described below is the **V2 target**; we kept the interface shape so the upgrade drops in without API churn.
+
+Flow (v1 Option A): seed script uploads `assets/demo/demo-agent.mp4` to Mux once → paste returned `playback_id` into `.dev.vars` → every `runTinkerCycle` writes that same id into `page_snapshots.mux_playback_id` → Vercel renders `<mux-player playback-id={id} />` inside a Y2K RealPlayer-styled frame. Real per-cycle capture (V2) would swap the recorder to produce a fresh MP4 per run.
 
 | Primitive | Role | Why this and not X |
 |-----------|------|--------------------|
@@ -90,24 +92,27 @@ Flow: the Worker's `recorder.ts` captures the agent's sandbox session (asciinema
 
 ### 1. Recorder (`apps/worker/src/recorder.ts`)
 
-Responsibilities:
-- Wrap the sandbox so every agent tool call (`write_file`, `list_assets`, `run_shell`, etc.) is emitted as a timestamped asciinema frame
-- On `stop()`, return the `.cast` contents as a string
-- Render the `.cast` to MP4 by shelling out to `asciinema-agg` (or `ffmpeg` with a typewriter overlay) inside the sandbox before it's destroyed
+**v1 (Option A) — no-op recorder.** Collects step labels for the transcript, returns the shared `MUX_DEMO_PLAYBACK_ID` from env. No sandbox interaction, no MP4 rendering. Ships today.
 
-Interface:
 ```ts
-export interface Recorder {
-  logStep(name: string, payload?: unknown): void
-  stop(): Promise<{ cast: string; mp4: Uint8Array; durationSec: number }>
+export interface RecorderOutput {
+  playbackId: string | null;
+  durationSec: number;
+  transcript: string;    // newline-joined step log, empty OK
 }
-export function startRecorder(sandbox: Sandbox): Recorder
+export interface Recorder {
+  logStep(name: string, payload?: unknown): void;
+  stop(env: { MUX_DEMO_PLAYBACK_ID?: string }): Promise<RecorderOutput>;
+}
+export function startRecorder(): Recorder;
 ```
 
-**Critical invariants:**
-- Rendering MP4 must happen *before* `sandbox.destroy()` — the binary lives in the sandbox FS
-- If MP4 rendering fails, return `{ cast, mp4: null }` and let `mux.ts` skip — the page is more important than the clip
-- Cap recording at 60s of wall-clock agent time; truncate if exceeded
+**V2 (deferred) — real recorder.** Wraps the sandbox so every agent tool call is emitted as a timestamped asciinema frame; renders `.cast` → MP4 via `asciinema-agg` (or `ffmpeg` with a typewriter overlay) inside the sandbox *before* `sandbox.destroy()` runs. V2 invariants will be:
+- MP4 rendering must happen *before* `sandbox.destroy()`
+- If rendering fails, return `playbackId: null` and let `mux.ts` skip
+- Cap recording at 60s wall-clock; truncate if exceeded
+
+The upgrade is a drop-in: `stop()` returns the same shape, just with a freshly uploaded `playbackId` per cycle instead of the env fallback.
 
 ### 2. Mux uploader (`apps/worker/src/mux.ts`)
 
@@ -177,10 +182,11 @@ export function RealPlayerClip({ playbackId }: { playbackId: string | null }) {
 
 ### 4. Env + bindings
 
-`.dev.vars` (Wrangler):
+`.dev.vars` (Wrangler) — all three pushed via `wrangler secret put` for the deployed Worker:
 ```
-MUX_TOKEN_ID=...
-MUX_TOKEN_SECRET=...
+MUX_TOKEN_ID=...                 # Video API token (Read + Write)
+MUX_TOKEN_SECRET=...              # Paired secret
+MUX_DEMO_PLAYBACK_ID=...          # Option A shared clip, emitted by scripts/upload-demo-mp4.ts
 ```
 
 `.env.local` (Vercel):
@@ -197,14 +203,26 @@ Web package additions:
 
 ### 5. Data persistence
 
-Write path in `runTinkerCycle` ([§9:359](../../../project.md#L359)):
+**v1 (Option A) write path** in `runTinkerCycle`:
+```ts
+await recordSnapshot(env, {
+  personaId,
+  version,
+  htmlKvKey,
+  muxPlaybackId: env.MUX_DEMO_PLAYBACK_ID ?? null,
+  sandboxLog: transcript,
+  tokenCostUsd: cost,
+})
+```
+
+**V2 (real per-cycle) write path** — what we'd swap to if the recorder is upgraded:
 ```ts
 const muxId = await uploadRecordingToMux(env, recorder.output.mp4)
 await recordSnapshot(env, {
   personaId,
   version,
   htmlKvKey,
-  muxPlaybackId: muxId,   // nullable
+  muxPlaybackId: muxId,   // nullable — falls back to demo id if null
   sandboxLog: transcript,
   tokenCostUsd: cost,
 })
@@ -218,11 +236,11 @@ Read path on Vercel: `/s/[id]/page.tsx` calls the Worker's `GET /p/:id/meta` end
 
 | Hour | Milestone | Done when |
 |------|-----------|-----------|
-| Night before | Manual `curl` against Mux direct-upload with a static MP4; verify `playback_id` plays in browser | Asset URL plays in Safari + Chrome |
-| Hour 1 | `mux.ts` wired into `runTinkerCycle`; still using a canned MP4 | `page_snapshots.mux_playback_id` non-null for dave-001 |
-| Hour 4 | `recorder.ts` produces a real `.cast` + MP4 from the live agent session ([§16:634](../../../project.md#L634)) | Mux asset for tyler shows actual agent typing |
+| Hour N/A | Demo MP4 uploaded to Mux; playback URL returns 200 | **✅ Done** — `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE` |
+| Hour 2 | `runTinkerCycle` writes `env.MUX_DEMO_PLAYBACK_ID` into `page_snapshots.mux_playback_id` | **✅ Done** — persona-do.ts line updated |
 | Hour 4 | `<RealPlayerClip />` embedded on `/s/[id]`; plays inline ([§16:638](../../../project.md#L638)) | Hitting `/s/dave-001` shows clip in RealPlayer frame |
-| Hour 5 | Prewarm run populates `mux_playback_id` for all 10 demo personas | All 10 `/s/` pages have playable clips |
+| Hour 5 | All 5 demo personas (scope reduced from 20) render the clip via `/p/:id/meta` | `curl /p/dave-001/meta` returns non-null `muxPlaybackId` |
+| V2 / post-event | Recorder captures real agent sessions, uploads per-cycle MP4s | Different playback_id per snapshot; transcripts visible in clip |
 
 ---
 
@@ -242,10 +260,10 @@ Read path on Vercel: `/s/[id]/page.tsx` calls the Worker's `GET /p/:id/meta` end
 
 ## Open questions
 
-1. **Cast → MP4 renderer**: `asciinema-agg` vs. a custom `ffmpeg drawtext` overlay. Former is prettier, latter is guaranteed-present. Decide during night-before smoke test.
-2. **Recording duration cap**: 60s feels right for demo but agent cycles may stretch to 90s. Confirm typical wall-clock from Gemini proposal before freezing the cap.
+1. **Cast → MP4 renderer — RESOLVED: deferred to V2.** Neither `asciinema-agg` nor `ffmpeg` was present in the Sandbox image, and the local macOS `ffmpeg` build was freetype-less, making `drawtext` unavailable. Shipping **Option A** in v1: one pre-rendered "AI computing" clip (ffmpeg `life` filter, 10s, 3.3 MB, uploaded manually to Mux) reused across all persona snapshots. Real per-cycle capture is a V2 item — the `Recorder` interface shape is preserved so the upgrade is a drop-in.
+2. ~~**Recording duration cap**~~ — moot in Option A (the demo clip is 10s fixed). V2 revisit.
 3. **Playback policy**: public is simplest; signed would let us expire demo clips after 7 days automatically. Deferred to post-event — manual deletion per [§18:673](../../../project.md#L673) is fine.
-4. **Poster frame**: rely on Mux auto-poster, or grab a specific frame (e.g., the final "done" screen)? Auto is cheaper; revisit only if posters look bad.
+4. ~~**Poster frame**~~ — relying on Mux auto-poster for the demo clip. Verified: `https://image.mux.com/<playback_id>/thumbnail.png` returns 200.
 5. **Bundle strategy for the player**: dynamic import vs. static. Likely dynamic — verify with `next build` in hour 4.
 
 ---
@@ -254,14 +272,22 @@ Read path on Vercel: `/s/[id]/page.tsx` calls the Worker's `GET /p/:id/meta` end
 
 ```
 apps/worker/src/
-├── recorder.ts          # asciinema capture + MP4 render (this proposal)
-└── mux.ts               # direct-upload helper (this proposal)
+├── recorder.ts          # v1 no-op, V2 asciinema capture (this proposal)
+└── mux.ts               # direct-upload helper — used by seed script today,
+                         #   by runTinkerCycle in V2 (this proposal)
+
+scripts/
+└── upload-demo-mp4.ts   # one-off Option A seed — uploads assets/demo/demo-agent.mp4
+                         #   and prints the playback_id for .dev.vars
+
+assets/demo/
+└── demo-agent.mp4       # 10s ffmpeg-synthesised "AI computing" clip (3.3 MB)
 
 apps/web/components/
-└── RealPlayerClip.tsx   # player chrome (this proposal)
+└── RealPlayerClip.tsx   # player chrome (this proposal; pending)
 
 apps/web/styles/
 └── retro.css            # RealPlayer chrome styles (shared; additions only)
 ```
 
-This proposal owns: `recorder.ts`, `mux.ts`, `RealPlayerClip.tsx`, the `mux_playback_id` read/write path, Mux credentials, and the `cost_ledger` entries tagged `kind = 'mux'`.
+This proposal owns: `recorder.ts`, `mux.ts`, `upload-demo-mp4.ts`, `assets/demo/demo-agent.mp4`, `RealPlayerClip.tsx`, the `mux_playback_id` read/write path, Mux credentials + `MUX_DEMO_PLAYBACK_ID`, and the `cost_ledger` entries tagged `kind = 'mux'` (V2 only — Option A incurs no per-cycle Mux charges).
