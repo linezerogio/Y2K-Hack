@@ -58,25 +58,27 @@ Maps to [project.md §16 "Night before"](../../project.md#L587). Nothing else ca
 Maps to [§16 Hour 0](../../project.md#L600). Goal: `curl p.geostumble.xyz/p/dave-001` returns 200 HTML from KV.
 
 ### 1.1 Worker router (`apps/worker/src/index.ts`)
-- [ ] `GET /health` → `{ ok, personaCount, poolSize }`
-- [ ] `GET /stumble` → **JSON `{ personaId }`** (resolved Open Q #6; was 302)
-- [ ] `GET /p/:id` → `text/html` from KV `page:{id}:current`, 404 on miss
-- [ ] `GET /p/:id/stream` → delegates to DO `statusStream`
-- [ ] `GET /p/:id/meta` → JSON from Neon + 5s in-memory cache
-- [ ] `POST /admin/nudge/:id` — bearer-gated, delegates to DO
-- [ ] `POST /admin/freeze` / `POST /admin/thaw` — bearer-gated, toggles `ADMIN.frozen`
-- [ ] `GET /admin/cost` — bearer-gated, reads `cost_ledger` sum
+- [x] `GET /health` → `{ ok, personaCount, poolSize }`
+- [x] `GET /stumble` → **JSON `{ personaId }`** (resolved Open Q #6; was 302)
+- [x] `GET /p/:id` → `text/html` from KV `page:{id}:current`, 404 on miss (via DO `serveCurrentPage`)
+- [x] `GET /p/:id/stream` → delegates to DO `statusStream`
+- [x] `GET /p/:id/meta` → JSON from Neon `getPersonaMeta` + 5s in-memory `metaCache`
+- [x] `POST /admin/nudge/:id` — bearer-gated, delegates to DO
+- [x] `POST /admin/freeze` / `POST /admin/thaw` — bearer-gated, toggles `ADMIN.frozen`
+- [x] `GET /admin/cost` — bearer-gated, reads via `totalSpendUsd` with 2s `costCache`
 
 ### 1.2 `PersonaDO` stub (`apps/worker/src/persona-do.ts`)
-- [ ] Class registered in `wrangler.toml` under `[[migrations]] tag = "v1"`
-- [ ] `fetch(req)` dispatches to `adminNudge` / `statusStream` / `serveCurrentPage`
-- [ ] `serveCurrentPage()` reads `page:{id}:current` from KV
-- [ ] `statusStream()` returns SSE piped from a DO-local `EventTarget`
-- [ ] Hardcoded HTML pre-populated at `page:dave-001:current` via `wrangler kv key put`
+- [x] Class registered in `wrangler.toml` under `[[migrations]] tag = "v1"` (`new_sqlite_classes`)
+- [x] `fetch(req)` dispatches to `adminNudge` / `statusStream` / `serveCurrentPage`
+- [x] `serveCurrentPage()` reads `page:{id}:current` from KV
+- [x] `statusStream()` returns SSE piped from a DO-local `EventTarget`
+- [x] Hardcoded HTML pre-populated at `page:dave-001:current` via `wrangler kv key put --remote`
+- [x] `ready:dave-001` sentinel also written so `/stumble` returns a non-empty pool
 
 ### 1.3 Exit gate
-- [ ] `curl https://p.geostumble.xyz/p/dave-001` returns 200 HTML
-- [ ] `curl https://p.geostumble.xyz/health` returns `{ ok: true, personaCount: 20 }`
+- [ ] `curl https://<worker-url>/p/dave-001` returns 200 HTML (requires `wrangler dev` or deploy)
+- [ ] `curl https://<worker-url>/health` returns `{ ok: true, personaCount: 20, poolSize: >=1 }`
+- [ ] `curl -H "Authorization: Bearer $ADMIN_TOKEN" https://<worker-url>/admin/cost` returns `{ totalUsd: 0, cached: false }`
 
 ---
 
