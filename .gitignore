@@ -10,3 +10,4 @@ build/
 .dev.vars
 *.log
 .DS_Store
+.claude/
