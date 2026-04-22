@@ -1,0 +1,202 @@
+[
+  {
+    "id": "dave-001",
+    "name": "Dave",
+    "age": 12,
+    "archetype": "pokemon-fan",
+    "obsessions": ["Charizard", "Pokemon Red", "Nintendo 64", "GameShark codes"],
+    "palette": {"bg": "#000080", "fg": "#ffff00", "link": "#00ffff", "vlink": "#ff00ff"},
+    "era": "1999-Q3",
+    "vibe_notes": "Ends sentences with multiple exclamation points. Types in ALL CAPS for excitement. Brags about Pokedex completion. Lists GameShark codes at the bottom of every page."
+  },
+  {
+    "id": "becky-002",
+    "name": "Becky",
+    "age": 15,
+    "archetype": "angsty-poet",
+    "obsessions": ["Evanescence", "black nail polish", "Edgar Allan Poe", "livejournal"],
+    "palette": {"bg": "#000000", "fg": "#8b0000", "link": "#dc143c", "vlink": "#4b0082"},
+    "era": "2001-Q1",
+    "vibe_notes": "Writes free verse. Quotes Poe slightly incorrectly. Has a shrine to 'her darkness'. Every other sentence contains an ellipsis..."
+  },
+  {
+    "id": "tyler-003",
+    "name": "Tyler",
+    "age": 14,
+    "archetype": "linkin-park-kid",
+    "obsessions": ["Hybrid Theory", "nu-metal", "JNCO jeans", "wallet chains"],
+    "palette": {"bg": "#1a1a1a", "fg": "#c0c0c0", "link": "#ff4500", "vlink": "#8b0000"},
+    "era": "2000-Q4",
+    "vibe_notes": "Quotes lyrics as life philosophy. Thinks his mom doesn't understand. Lists his CD collection in tracklist order."
+  },
+  {
+    "id": "linda-004",
+    "name": "Linda",
+    "age": 41,
+    "archetype": "beanie-baby-mom",
+    "obsessions": ["Princess bear", "retirement list", "McDonald's Teenie Beanies", "tag protectors"],
+    "palette": {"bg": "#ffc0cb", "fg": "#800080", "link": "#ff1493", "vlink": "#c71585"},
+    "era": "1999-Q2",
+    "vibe_notes": "Types in Comic Sans. Has strong opinions on the secondary market. Ends every paragraph with 'God bless!!'"
+  },
+  {
+    "id": "harold-005",
+    "name": "Harold",
+    "age": 67,
+    "archetype": "ham-radio-grandpa",
+    "obsessions": ["QSL cards", "DX-ing", "Morse code", "solar flux index"],
+    "palette": {"bg": "#c0c0c0", "fg": "#000000", "link": "#0000ff", "vlink": "#800080"},
+    "era": "1998-Q4",
+    "vibe_notes": "Signs off with his callsign. Includes timestamp in UTC on everything. Complains about 'kids on CB'."
+  },
+  {
+    "id": "megan-006",
+    "name": "Megan",
+    "age": 11,
+    "archetype": "horse-girl",
+    "obsessions": ["Thoroughbreds", "The Saddle Club books", "Breyer models", "Misty of Chincoteague"],
+    "palette": {"bg": "#f5deb3", "fg": "#8b4513", "link": "#a0522d", "vlink": "#654321"},
+    "era": "1999-Q4",
+    "vibe_notes": "Draws ASCII horses. Names every pet. Has strong opinions on English vs Western saddle."
+  },
+  {
+    "id": "carl-007",
+    "name": "Carl",
+    "age": 38,
+    "archetype": "fishing-dad",
+    "obsessions": ["largemouth bass", "Rapala lures", "bass boats", "Bill Dance"],
+    "palette": {"bg": "#4682b4", "fg": "#ffffff", "link": "#ffd700", "vlink": "#ff8c00"},
+    "era": "2000-Q2",
+    "vibe_notes": "Embeds photos of fish with his thumb barely visible. Captions are the weight. Links to his tackle shop."
+  },
+  {
+    "id": "ashley-008",
+    "name": "Ashley",
+    "age": 16,
+    "archetype": "nsync-fan",
+    "obsessions": ["JC Chasez", "Tiger Beat", "concert tickets", "getting to the barricade"],
+    "palette": {"bg": "#ff69b4", "fg": "#ffffff", "link": "#ffff00", "vlink": "#9370db"},
+    "era": "2000-Q1",
+    "vibe_notes": "Refers to JC by his first name only. Lists every tour date she attended. Maintains a 'JC sightings' log."
+  },
+  {
+    "id": "marcus-009",
+    "name": "Marcus",
+    "age": 13,
+    "archetype": "wrestling-fan",
+    "obsessions": ["Stone Cold Steve Austin", "Monday Night Raw", "nWo", "chair shots"],
+    "palette": {"bg": "#000000", "fg": "#00ff00", "link": "#ff0000", "vlink": "#808080"},
+    "era": "1999-Q1",
+    "vibe_notes": "Writes in kayfabe. Debates WWF vs WCW. Has a 'move of the week' GIF. Uses 'JABRONI' unironically."
+  },
+  {
+    "id": "sarah-010",
+    "name": "Sarah",
+    "age": 17,
+    "archetype": "ffviii-walkthrough-guy",
+    "obsessions": ["Final Fantasy VIII", "Junction system", "Squall/Rinoa", "Triple Triad card rules"],
+    "palette": {"bg": "#191970", "fg": "#e6e6fa", "link": "#7fffd4", "vlink": "#ba55d3"},
+    "era": "1999-Q3",
+    "vibe_notes": "Writes 40-page strategy guides. Uses unnecessarily complex HTML tables for stat calculations. Flames anyone who calls it FF8."
+  },
+  {
+    "id": "brian-011",
+    "name": "Brian",
+    "age": 29,
+    "archetype": "x-files-truther",
+    "obsessions": ["Area 51", "The Lone Gunmen", "grey aliens", "government cover-ups"],
+    "palette": {"bg": "#0a0a0a", "fg": "#00ff41", "link": "#ff0000", "vlink": "#008000"},
+    "era": "1998-Q3",
+    "vibe_notes": "Everything is connected. Links to GeoCities of other truthers. Warns visitors that 'they' may be watching."
+  },
+  {
+    "id": "tina-012",
+    "name": "Tina",
+    "age": 19,
+    "archetype": "webring-librarian",
+    "obsessions": ["HTML validation", "webring curation", "alt text", "accessibility badges"],
+    "palette": {"bg": "#ffffff", "fg": "#000080", "link": "#0000ee", "vlink": "#551a8b"},
+    "era": "2000-Q3",
+    "vibe_notes": "Displays her W3C HTML 4.01 Strict validator badge prominently. Maintains a ring of 40+ sites. Ruthlessly polite."
+  },
+  {
+    "id": "kyle-013",
+    "name": "Kyle",
+    "age": 10,
+    "archetype": "tamagotchi-obsessive",
+    "obsessions": ["Tamagotchi", "Digimon", "Giga Pets", "virtual pet graveyards"],
+    "palette": {"bg": "#ffff99", "fg": "#006400", "link": "#ff1493", "vlink": "#ff4500"},
+    "era": "1998-Q1",
+    "vibe_notes": "Memorializes dead pets. Lists feeding schedules. Draws stage evolutions in 8-bit ASCII."
+  },
+  {
+    "id": "deb-014",
+    "name": "Deb",
+    "age": 34,
+    "archetype": "aim-chatroom-moderator",
+    "obsessions": ["AIM away messages", "chatroom drama", "Buddy List organization", "screen names"],
+    "palette": {"bg": "#ffff00", "fg": "#0000ff", "link": "#ff00ff", "vlink": "#008080"},
+    "era": "2001-Q2",
+    "vibe_notes": "Lists all her screen names and their specific purposes. Enforces chatroom rules with numbered bullet points."
+  },
+  {
+    "id": "steve-015",
+    "name": "Steve",
+    "age": 22,
+    "archetype": "geocities-neighborhood-evangelist",
+    "obsessions": ["Area 51 neighborhood", "SiliconValley sector", "URL squatting", "HTML under construction gifs"],
+    "palette": {"bg": "#008080", "fg": "#ffffff", "link": "#00ff00", "vlink": "#ffa500"},
+    "era": "1999-Q2",
+    "vibe_notes": "Evangelizes for a specific GeoCities neighborhood. Has strong opinions on which neighborhoods are 'dying'. Lists his sectors."
+  },
+  {
+    "id": "jen-016",
+    "name": "Jen",
+    "age": 13,
+    "archetype": "spice-girls-fan",
+    "obsessions": ["Sporty Spice", "Girl Power", "platform sneakers", "Union Jack dresses"],
+    "palette": {"bg": "#ff1493", "fg": "#ffffff", "link": "#ffff00", "vlink": "#00bfff"},
+    "era": "1998-Q2",
+    "vibe_notes": "Announces which Spice she is within the first 50 words. Ranks the members. Capitalizes GIRL POWER every time."
+  },
+  {
+    "id": "greg-017",
+    "name": "Greg",
+    "age": 45,
+    "archetype": "y2k-prepper",
+    "obsessions": ["Y2K bug", "canned beans", "generators", "survival bunkers"],
+    "palette": {"bg": "#2f4f4f", "fg": "#f5f5dc", "link": "#ffd700", "vlink": "#cd853f"},
+    "era": "1999-Q4",
+    "vibe_notes": "Counts down to midnight. Lists supplies in tables. Disclaims he's 'not paranoid, just prepared'. Still active post-2000."
+  },
+  {
+    "id": "amber-018",
+    "name": "Amber",
+    "age": 16,
+    "archetype": "anime-club-president",
+    "obsessions": ["Sailor Moon", "Cowboy Bebop", "Tenchi Muyo", "fansub VHS trades"],
+    "palette": {"bg": "#ffb6c1", "fg": "#4b0082", "link": "#ff69b4", "vlink": "#9400d3"},
+    "era": "2000-Q2",
+    "vibe_notes": "Uses kawaii emoticons (^_^). Uploads badly-scanned cel pictures. Lists fansub trade contacts. Debates subs vs dubs."
+  },
+  {
+    "id": "ray-019",
+    "name": "Ray",
+    "age": 58,
+    "archetype": "conspiracy-bookstore-owner",
+    "obsessions": ["JFK assassination", "chemtrails", "micro-presses", "out-of-print paperbacks"],
+    "palette": {"bg": "#f5f5dc", "fg": "#8b0000", "link": "#000080", "vlink": "#556b2f"},
+    "era": "1998-Q4",
+    "vibe_notes": "Writes in dense paragraphs with no breaks. Links to mail-order catalogs. Warns about specific agencies by name."
+  },
+  {
+    "id": "nicole-020",
+    "name": "Nicole",
+    "age": 20,
+    "archetype": "dreamcast-evangelist",
+    "obsessions": ["Sega Dreamcast", "Shenmue", "Crazy Taxi", "SegaNet"],
+    "palette": {"bg": "#ff8c00", "fg": "#ffffff", "link": "#000080", "vlink": "#4169e1"},
+    "era": "2000-Q4",
+    "vibe_notes": "Defends Sega to the death. Lists every Dreamcast game she owns. Countdown to SegaNet launch. 'PlayStation 2 is overrated.'"
+  }
+]
