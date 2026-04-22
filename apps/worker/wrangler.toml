@@ -1,0 +1,69 @@
+name = "geostumble-worker"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# --- Durable Objects ---------------------------------------------------------
+[[durable_objects.bindings]]
+name = "PERSONA"
+class_name = "PersonaDO"
+
+[[durable_objects.bindings]]
+name = "SANDBOX"
+class_name = "Sandbox"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PersonaDO", "Sandbox"]
+
+# --- KV ----------------------------------------------------------------------
+[[kv_namespaces]]
+binding = "PAGES"
+id = "75cd531f5bcd42628127d69643b1de47"
+
+[[kv_namespaces]]
+binding = "ADMIN"
+id = "b3e3d18ec2cb4d5e9cfb7a3ab4082bd2"
+
+# --- R2 ----------------------------------------------------------------------
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "geostumble-assets"
+
+# --- Sandbox SDK (Containers) ------------------------------------------------
+# Sandbox is a DO class shipped by @cloudflare/sandbox and bound above. The
+# container image is the SDK's own Dockerfile.
+[[containers]]
+class_name = "Sandbox"
+image = "./Dockerfile"
+max_instances = 5
+instance_type = "standard-1"
+
+# --- Routes ------------------------------------------------------------------
+# Skipping custom domain for v1 — Worker serves from `*.workers.dev` (free,
+# auto-provisioned on first deploy). Swap in a [[routes]] block if/when a
+# custom domain lands on the account.
+
+# --- Vars --------------------------------------------------------------------
+[vars]
+EDIT_PROBABILITY = "0.3"
+MAX_CONCURRENT_SANDBOXES = "5"
+COST_CAP_USD = "50"
+# R2 public dev URL — injected into the coding-agent system prompt so agents
+# can write <img src="${ASSETS_PUBLIC_URL}/assets/tiles/stars.gif">.
+ASSETS_PUBLIC_URL = "https://pub-7313ad06136f4e89bec6f10ac19488c8.r2.dev"
+
+# Secrets (NEON_DATABASE_URL, GEMINI_API_KEY, ANTHROPIC_API_KEY, MUX_*,
+# JAZZ_WORKER_*, JAZZ_REGISTRY_ID, ADMIN_TOKEN) live in .dev.vars locally
+# and are pushed via `wrangler secret put` for the deployed Worker.
+
+# --- Module rules ------------------------------------------------------------
+# Bundle .md prompts as Text so the coding agent can import them directly.
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
+# --- Observability -----------------------------------------------------------
+[observability]
+enabled = true

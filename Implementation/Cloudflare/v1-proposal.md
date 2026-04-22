@@ -36,7 +36,7 @@ Five Cloudflare primitives are used, each doing real work (not just hosting):
 - KV layout: `page:{id}:current`, `page:{id}:v{n}`, `ready_pool`, `asset:manifest` ([§7:257](../../project.md#L257))
 - R2 buckets: `assets/`, `pages_archive/`, `sessions/` ([§7:262](../../project.md#L262))
 - Cost-cap kill-switch reading `cost_ledger` → freezing alarms ([§14:573](../../project.md#L573))
-- DNS: `p.geostumble.xyz` → Worker; `assets.geostumble.xyz` → R2 custom domain
+- **Hosting:** Worker on `*.workers.dev` (auto-provisioned), R2 assets on `pub-*.r2.dev` (public dev URL). Custom `geostumble.xyz` DNS deferred — not required for the demo.
 
 ### Out (v1)
 - Worker auth beyond `ADMIN_TOKEN` bearer
@@ -102,6 +102,8 @@ Responsibilities:
 ```
 Pulled from Neon (`personas` + `page_snapshots` latest) with a 5s in-memory cache per persona — demo doesn't need fresh-every-hit on the sidebar.
 
+> **`status` here is a seed/snapshot value only.** Consumers must rebind to Jazz `PersonaRoom.status` (see [Jazz §6](../Jazz/v1-proposal.md)) after hydration for live updates — otherwise cycle-completion will not clear an "editing" banner.
+
 DO binding lookup:
 ```ts
 const id = env.PERSONA.idFromName(personaId)
@@ -117,14 +119,20 @@ Per [§9:302](../../project.md#L302). Key behaviors:
 |--------|---------|
 | `constructor` | `blockConcurrencyWhile` loads persona from Neon on first hit, seeds initial alarm with jitter `[60s, 300s]` |
 | `fetch(req)` | Dispatches to `adminNudge` / `statusStream` / `serveCurrentPage` based on path |
-| `alarm()` | 30% probability of `runTinkerCycle`; always reschedules next alarm |
+| `alarm()` | `EDIT_PROBABILITY` (default `0.3`) chance of `runTinkerCycle`; always reschedules next alarm |
 | `runTinkerCycle()` | Cost-cap check → set status `editing` → Sandbox → coding agent → KV write → Mux upload → Neon snapshot → destroy sandbox → set `idle` |
-| `setStatus(s)` | Writes to Jazz CoValue via worker-account client |
+| `setStatus(s)` | Fans out: (a) writes to Jazz CoValue via worker-account client, (b) dispatches to DO-local `EventTarget` for SSE subscribers |
+| `adminNudge()` | Auth-checked wrapper around `runTinkerCycle`; returns `{version, estimatedSeconds}` |
+| `serveCurrentPage()` | Reads `page:{id}:current` from KV, returns `text/html`; 404 if unset |
+| `statusStream()` | Returns an SSE `Response` whose body is piped from the DO-local `EventTarget` seeded by `setStatus` |
 
 **Critical invariants:**
 - `sandbox.destroy()` in a `finally` block — orphaned sandboxes burn $
 - Alarms always reschedule, even on exception
 - Jitter prevents thundering-herd when all DOs deployed simultaneously
+- `EDIT_PROBABILITY` is env-configurable (crank to `1.0` during rehearsal so every alarm produces a cycle)
+- **Sandbox concurrency guard:** a module-level counter (or DO-storage-backed semaphore) caps in-flight sandboxes at `MAX_CONCURRENT_SANDBOXES` (default `5`). `runTinkerCycle` early-returns when saturated so admin-nudge-all storms degrade gracefully instead of tripping Cloudflare account limits.
+- **SSE plumbing lives in-DO.** Each DO instance owns an `EventTarget`; `setStatus` dispatches a `StatusEvent` to it before writing Jazz. `statusStream()` attaches a listener and pipes events to the client. This is the Jazz-outage fallback path per [§17 risk row](../../project.md#L660) — it must work independently of Jazz.
 
 ### 3. Sandbox integration (`apps/worker/src/sandbox.ts`)
 
@@ -143,9 +151,14 @@ Agent tool loop lives in `coding-agent.ts`, not here. This file is just the SDK 
 ```
 page:{personaId}:current     → HTML string (served by /p/{id})
 page:{personaId}:v{n}        → HTML string (history)
-ready_pool                   → JSON: string[] of personas with ≥ v1
+ready:{personaId}            → "1" (sentinel; presence = eligible for /stumble)
 asset:manifest               → JSON: AssetManifestEntry[]
+jazz:registry_id             → RoomRegistry CoValue id (seed-script output)
 ```
+
+> **Why per-persona `ready:*` keys, not a single `ready_pool` JSON array?** KV has no CAS and 20 DOs can add themselves concurrently — a single JSON doc would drop writes. With per-persona keys, each DO writes its own sentinel (no contention), and `/stumble` picks a random persona via `PAGES.list({ prefix: "ready:", limit: 1000 })`.
+>
+> **Read-back before pooling:** KV is eventually consistent, so `runTinkerCycle` must re-read `page:{id}:current` and confirm it returns the new HTML *before* writing `ready:{id}`. Otherwise `/stumble` can 302 to a persona whose page hasn't replicated, yielding a 404.
 
 **KV namespace: `ADMIN`**
 ```
@@ -162,13 +175,15 @@ pages_archive/{personaId}/v{n}.html
 sessions/{personaId}/v{n}.cast
 ```
 
-Custom domain `assets.geostumble.xyz` so agent-written `<img src="https://assets.geostumble.xyz/...">` resolves directly without going through Worker.
+R2 public dev URL (`https://pub-<hash>.r2.dev`) is enabled on the bucket and injected into the Worker via `ASSETS_PUBLIC_URL`. Agent-written HTML references assets as `<img src="${ASSETS_PUBLIC_URL}/assets/tiles/stars.gif">`. Custom domain (`assets.geostumble.xyz`) is an optional future upgrade — swap `ASSETS_PUBLIC_URL` and add an R2 custom domain binding in the dashboard, no code changes.
 
 ### 5. Kill-switch
 
 Two layers:
-1. **Per-cycle cost cap** — `costCapHit()` sums `cost_ledger` from Neon before each tinker; early-return if ≥ `COST_CAP_USD` ([§14:573](../../project.md#L573)).
+1. **Per-cycle cost cap** — `costCapHit()` sums `cost_ledger` from Neon before each tinker; early-return if ≥ `COST_CAP_USD` ([§14:573](../../project.md#L573)). **Cached in DO storage with a 30s TTL** (`costCap:checkedAt`, `costCap:sumUsd`) so admin-nudge-all doesn't stampede Neon with 20 simultaneous `SELECT SUM()` queries. Cache is blown on `POST /admin/cost/refresh` for the demo.
 2. **Global freeze** — `POST /admin/freeze` sets `ADMIN.frozen = "1"`; `alarm()` checks this before doing work, but always reschedules so `/admin/thaw` resumes cleanly.
+
+> **Deviation from [project.md §8:286](../../project.md#L286).** The spec says freeze "clears all DO alarms". We instead keep alarms scheduled and gate work on the KV flag, because Workers cannot enumerate DO instances — there's no path to re-arm alarms on thaw for DOs that never re-entered their `alarm()` handler. The KV-flag approach is the only design where thaw actually resumes the fleet.
 
 ### 6. Environment variables
 
@@ -183,11 +198,17 @@ Worker `.dev.vars` (and `wrangler secret put` for deployed Worker):
 | `JAZZ_SYNC_URL` | `wss://cloud.jazz.tools/sync` | [Jazz §8](../Jazz/v1-proposal.md) |
 | `JAZZ_WORKER_ACCOUNT` | Worker Jazz identity | `npx jazz-run account create` |
 | `JAZZ_WORKER_SECRET` | Paired secret | same |
-| `JAZZ_REGISTRY_ID` | `RoomRegistry` CoValue id | Seed script output (see Open Questions §4) |
+| `JAZZ_REGISTRY_ID` | `RoomRegistry` CoValue id (override only; boot path reads from KV `jazz:registry_id`) | Seed-script output |
 | `ADMIN_TOKEN` | Bearer for `/admin/*` | Generated locally, long random |
+| `EDIT_PROBABILITY` | Alarm tinker-cycle probability | `0.3` (set `1.0` for rehearsal) |
+| `MAX_CONCURRENT_SANDBOXES` | Sandbox concurrency cap | `5` |
 | `COST_CAP_USD` | Kill-switch threshold | `50` |
 
 The Worker is the only service holding secrets; Vercel has only `NEXT_PUBLIC_*` (see [Frontend §6](../Frontend/v1-proposal.md)).
+
+> **`JAZZ_REGISTRY_ID` lookup order:** (1) KV `jazz:registry_id` (written by `seed-jazz-rooms.ts`), (2) `env.JAZZ_REGISTRY_ID` secret as override. Single source of truth is the seed script; the secret exists only so local dev can point at a different registry without re-running the seed.
+>
+> **`ADMIN_TOKEN` reachability:** The Vercel admin panel calls `/admin/*` *from Next.js route handlers (server-side)* — never from the browser. The token lives in Vercel server env (`ADMIN_TOKEN`, no `NEXT_PUBLIC_` prefix), and the browser hits `/api/admin/*` proxies that add the bearer header. A leaked token gives fleet-wide freeze/thaw/nudge, so keep it server-only.
 
 ### 7. `wrangler.toml`
 
@@ -217,7 +238,11 @@ id = "<created via wrangler kv namespace create>"
 binding = "ASSETS"
 bucket_name = "geostumble-assets"
 
-# Sandbox SDK binding — exact shape TBD from docs
+# Sandbox SDK binding — exact shape must be pinned during the
+# night-before smoke test ([§16:597](../../project.md#L597)). Committing a
+# stub here is fine, but leaving the shape unresolved into Hour 0 is the
+# top-ranked project risk ([§17:659](../../project.md#L659)) — do not ship
+# Hour-0 without this section filled in from a verified `wrangler dev` run.
 [[containers]]
 # ...
 
@@ -247,9 +272,9 @@ zone_name = "geostumble.xyz"
 | Sandbox SDK unfamiliar, eats an hour | [§17:659](../../project.md#L659) | Smoke test night-before is gating. Fallback: E2B/Daytona adapter behind `sandbox.ts` interface |
 | DO init slow on first Neon query | [§17:667](../../project.md#L667) | `blockConcurrencyWhile` on constructor + Neon connection reuse; accept first-hit latency for non-demo personas |
 | Alarm thundering herd on deploy | inherent | Jitter `[60s, 300s]` on initial alarm set in constructor |
-| KV eventual consistency shows stale HTML | inherent | Acceptable — page refreshes are rare, and `current` is overwritten, not appended |
+| KV eventual consistency → `/stumble` 302s to a persona whose `page:{id}:current` hasn't replicated | inherent | Read-back the `current` key inside `runTinkerCycle` before writing the `ready:{id}` sentinel (see §4). Stale reads on `current` itself are tolerated — refreshes are rare and each write overwrites, never appends |
 | Orphaned sandboxes from exceptions | inherent | `try/finally` around every `createSandbox` call; review in hour 5 |
-| R2 custom domain DNS propagation | deploy-time | Configure night-before; fallback to proxying via Worker |
+| R2 public URL changes under us | low — `pub-*.r2.dev` is stable per-bucket | Custom domain path is documented if we need it later; the current URL is persisted in `ASSETS_PUBLIC_URL` var |
 
 ---
 
@@ -258,9 +283,9 @@ zone_name = "geostumble.xyz"
 1. **Sandbox SDK pricing model** — per-invocation or per-minute? Affects cost-ledger calc in `runTinkerCycle`.
 2. **DO alarm precision** — jitter window assumes ± seconds, not ± minutes. Verify with a stopwatch in hour 0.
 3. **Worker bundle size** — agent loop + SDK clients may push past 1MB compressed. If so, lazy-import Mux + Neon clients inside `runTinkerCycle`.
-4. **R2 → iframe CORS** — agent-written HTML loads images from `assets.geostumble.xyz`; served by R2 custom domain should Just Work, but verify during smoke test.
+4. **R2 → iframe CORS** — agent-written HTML loads images from `${ASSETS_PUBLIC_URL}` (currently `pub-7313ad06136f4e89bec6f10ac19488c8.r2.dev`). R2 public dev URLs serve with permissive CORS by default; verify during smoke test.
 5. **Seed-script bootstrap for `JAZZ_REGISTRY_ID`** — [Frontend §4 step 7](../Frontend/v1-proposal.md) expects `seed-personas.ts` to emit it; [Jazz §7 step 7](../Jazz/v1-proposal.md) defines a separate `seed-jazz-rooms.ts`. Worker needs the ID in `.dev.vars` either way. Recommended resolution: run the seed in two scripts (personas → Neon first, then rooms → Jazz), and have `seed-jazz-rooms.ts` write the registry id to both KV (`jazz:registry_id`) and stdout for copy-paste into `.env.local`.
-6. **`/stumble` response shape** — project.md §8 + this doc say 302; [Frontend §11 Q3](../Frontend/v1-proposal.md) proposes JSON `{ personaId }`. Current `/api/stumble` proxy parses `Location`, which works with 302. Leaving as 302 unless Frontend pushes back — simpler to cache at the edge.
+6. **`/stumble` response shape — RESOLVED: JSON.** Switching from 302 to `200 { personaId }`. Rationale: Vercel's `fetch()` follows redirects by default, so the `/api/stumble` proxy would need `redirect: 'manual'` to read `Location` — easy footgun. JSON has no such hazard, and edge caching of a 302 was never going to matter for a pool that churns on every tinker cycle. Project.md §8:272 must be updated in lockstep; Frontend `/api/stumble` proxy returns `{ personaId, personaMeta }` unchanged from its POV.
 
 ---
 
@@ -277,10 +302,9 @@ apps/worker/
 │   ├── mux.ts                 # (see Mux proposal)
 │   ├── neon.ts                # (see Database proposal)
 │   └── jazz-writer.ts         # (see Jazz proposal)
-# Note: jazz CoValue schemas moved to packages/shared/src/jazz-schema.ts
-#       per Jazz §6 (shared between web + worker). The scaffolded
-#       apps/worker/src/schemas/jazz-coValues.ts will be deleted.
 └── wrangler.toml
 ```
+
+**Note on Jazz schemas.** The scaffolded `apps/worker/src/schemas/jazz-coValues.ts` will be deleted — Jazz CoValue schemas live in `packages/shared/src/jazz-schema.ts` per [Jazz §6](../Jazz/v1-proposal.md), shared between web + worker.
 
 This proposal owns: `index.ts`, `persona-do.ts`, `sandbox.ts`, `wrangler.toml`, KV namespaces, R2 bucket, DNS.

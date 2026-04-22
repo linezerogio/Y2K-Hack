@@ -1,0 +1,52 @@
+[
+  {
+    "id": "dave-001",
+    "name": "Dave",
+    "age": 12,
+    "archetype": "pokemon-fan",
+    "obsessions": ["Charizard", "Pokemon Red", "Nintendo 64", "GameShark codes"],
+    "palette": {"bg": "#000080", "fg": "#ffff00", "link": "#00ffff", "vlink": "#ff00ff"},
+    "era": "1999-Q3",
+    "vibe_notes": "Ends sentences with multiple exclamation points. Types in ALL CAPS for excitement. Brags about Pokedex completion. Lists GameShark codes at the bottom of every page."
+  },
+  {
+    "id": "becky-002",
+    "name": "Becky",
+    "age": 15,
+    "archetype": "angsty-poet",
+    "obsessions": ["Evanescence", "black nail polish", "Edgar Allan Poe", "livejournal"],
+    "palette": {"bg": "#000000", "fg": "#8b0000", "link": "#dc143c", "vlink": "#4b0082"},
+    "era": "2001-Q1",
+    "vibe_notes": "Writes free verse. Quotes Poe slightly incorrectly. Has a shrine to 'her darkness'. Every other sentence contains an ellipsis..."
+  },
+  {
+    "id": "tyler-003",
+    "name": "Tyler",
+    "age": 14,
+    "archetype": "linkin-park-kid",
+    "obsessions": ["Hybrid Theory", "nu-metal", "JNCO jeans", "wallet chains"],
+    "palette": {"bg": "#1a1a1a", "fg": "#c0c0c0", "link": "#ff4500", "vlink": "#8b0000"},
+    "era": "2000-Q4",
+    "vibe_notes": "Quotes lyrics as life philosophy. Thinks his mom doesn't understand. Lists his CD collection in tracklist order."
+  },
+  {
+    "id": "linda-004",
+    "name": "Linda",
+    "age": 41,
+    "archetype": "beanie-baby-mom",
+    "obsessions": ["Princess bear", "retirement list", "McDonald's Teenie Beanies", "tag protectors"],
+    "palette": {"bg": "#ffc0cb", "fg": "#800080", "link": "#ff1493", "vlink": "#c71585"},
+    "era": "1999-Q2",
+    "vibe_notes": "Types in Comic Sans. Has strong opinions on the secondary market. Ends every paragraph with 'God bless!!'"
+  },
+  {
+    "id": "harold-005",
+    "name": "Harold",
+    "age": 67,
+    "archetype": "ham-radio-grandpa",
+    "obsessions": ["QSL cards", "DX-ing", "Morse code", "solar flux index"],
+    "palette": {"bg": "#c0c0c0", "fg": "#000000", "link": "#0000ff", "vlink": "#800080"},
+    "era": "1998-Q4",
+    "vibe_notes": "Signs off with his callsign. Includes timestamp in UTC on everything. Complains about 'kids on CB'."
+  }
+]

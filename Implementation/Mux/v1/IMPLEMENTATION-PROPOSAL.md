@@ -210,7 +210,7 @@ await recordSnapshot(env, {
 })
 ```
 
-Read path on Vercel: `/s/[id]/page.tsx` queries Neon for the latest `page_snapshots` row by `persona_id` ordered by `version DESC`, passes `mux_playback_id` to `<RealPlayerClip />`.
+Read path on Vercel: `/s/[id]/page.tsx` calls the Worker's `GET /p/:id/meta` endpoint ([Cloudflare §1](../../Cloudflare/v1-proposal.md)), which runs `getPersonaMeta` ([Database §3](../../Database/v1-proposal.md)) to return `{ personaId, name, era, version, muxPlaybackId }` in one round-trip. Vercel does **not** hold Neon credentials — the Worker is the only DB client. The `muxPlaybackId` is passed to `<RealPlayerClip />`.
 
 ---
 

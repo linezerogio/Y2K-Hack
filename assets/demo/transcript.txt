@@ -1,0 +1,18 @@
+geostumble-agent v1.0
+
+> list_assets tags=space,dark
+  found: stars-blue.gif
+  found: galaxy-tile.gif
+
+> write_file /workspace/index.html
+  <html><body bgcolor=#000080>
+  <marquee>WELCOME!!!</marquee>
+  <img src=stars-blue.gif>
+  ...421 bytes
+
+> validate_html
+  tidy: 0 errors, 3 warnings
+
+> done
+
+*** AGENT COMPLETE ***

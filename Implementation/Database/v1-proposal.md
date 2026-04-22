@@ -126,9 +126,30 @@ export async function totalSpendUsd(env: Env): Promise<number> {
   const rows = await sql(env)`SELECT COALESCE(SUM(amount_usd), 0) AS total FROM cost_ledger`;
   return Number(rows[0].total);
 }
+
+export async function getPersonaMeta(env: Env, id: string): Promise<PersonaMeta | null> {
+  const rows = await sql(env)`
+    SELECT p.id          AS "personaId",
+           p.name,
+           p.era,
+           COALESCE(s.version, 0)        AS version,
+           s.mux_playback_id             AS "muxPlaybackId"
+    FROM personas p
+    LEFT JOIN LATERAL (
+      SELECT version, mux_playback_id
+      FROM page_snapshots
+      WHERE persona_id = p.id
+      ORDER BY version DESC
+      LIMIT 1
+    ) s ON TRUE
+    WHERE p.id = ${id}
+  `;
+  if (!rows[0]) return null;
+  return { ...rows[0], version: Number(rows[0].version) } as PersonaMeta;
+}
 ```
 
-All query call sites in `persona-do.ts`, `coding-agent.ts`, and `/admin/cost` go through this module.
+All query call sites in `persona-do.ts`, `coding-agent.ts`, `/admin/cost`, and `/p/:id/meta` go through this module. `getPersonaMeta` serves the Cloudflare `/p/:id/meta` route ([Cloudflare §1](../Cloudflare/v1-proposal.md)) and the Frontend `getLatestSnapshot` helper ([Frontend §5](../Frontend/v1-proposal.md)) in one round-trip. `status` is not returned — callers rebind to Jazz `PersonaRoom.status` for live values.
 
 ---
 
@@ -153,6 +174,8 @@ for (const p of personas) {
 ```
 
 Run: `NEON_DATABASE_URL=... tsx scripts/seed-personas.ts`. Ship before hour 0.
+
+> **Scope:** this script seeds Neon only. Jazz `RoomRegistry` + per-persona `PersonaRoom` CoValues are created by a separate `scripts/seed-jazz-rooms.ts` ([Jazz §7 step 7](../Jazz/v1-proposal.md)), which runs *after* personas exist in Neon (it reads the persona list to know what rooms to create).
 
 ---
 
@@ -184,7 +207,7 @@ Run: `NEON_DATABASE_URL=... tsx scripts/seed-personas.ts`. Ship before hour 0.
 | Neon cold start on first DO boot delays first stumble | `main` branch autosuspend disabled; prewarm script issues a `SELECT 1` at 09:45 |
 | `pg` driver imported accidentally → Worker deploy fails | Lint rule / code review; `neon.ts` is the only DB module |
 | Seed script run against `main` instead of `dev` | Seed script prints target host and requires `--confirm-prod` flag for `*.neon.tech` URLs without `dev-` prefix |
-| Snapshot insert races when two alarms overlap | `UNIQUE (persona_id, version)` + `ON CONFLICT DO NOTHING`; version is computed as `MAX+1` under DO concurrency lock (DO is single-threaded, so this is safe per-persona) |
+| Snapshot insert races when two alarms overlap | `UNIQUE (persona_id, version)` + `ON CONFLICT DO NOTHING`; version is computed as `MAX+1` under DO concurrency lock (DO is single-threaded, so this is safe per-persona). **Invariant:** all `page_snapshots` writes must go through the per-persona DO — no out-of-band inserts from cron, replay scripts, or admin tools, or the `MAX+1` read-then-write becomes racy |
 | Cost ledger grows unbounded | Not a concern for 6hr demo; post-event cleanup per §18 |
 
 ---
@@ -193,7 +216,7 @@ Run: `NEON_DATABASE_URL=... tsx scripts/seed-personas.ts`. Ship before hour 0.
 
 - [ ] Neon project + `main` and `dev` branches created, autosuspend configured
 - [ ] `apps/worker/db/schema.sql` committed
-- [ ] `apps/worker/src/neon.ts` committed with 5 functions above
+- [ ] `apps/worker/src/neon.ts` committed with 6 functions above (`loadPersonaFromNeon`, `getLatestVersion`, `recordSnapshot`, `logCost`, `totalSpendUsd`, `getPersonaMeta`)
 - [ ] `scripts/seed-personas.ts` + `scripts/personas.json` (20 entries) committed
 - [ ] `NEON_DATABASE_URL` set in Wrangler secrets for deployed Worker
 - [ ] Smoke test: `scripts/smoke.ts` inserts+reads a row in `cost_ledger`, exits 0
