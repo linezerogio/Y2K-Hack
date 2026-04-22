@@ -1,15 +1,19 @@
-import type { Metadata } from 'next';
-import './globals.css';
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'GEOSTUMBLE :: the internet before the internet was ruined',
-  description: 'StumbleUpon, but every page is an AI agent with a Durable Object for a brain.',
+  title: "GeoStumble",
+  description: "StumbleUpon for Y2K homepages",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en">
-      <body className="bg-black text-[#00ff00] font-mono antialiased">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

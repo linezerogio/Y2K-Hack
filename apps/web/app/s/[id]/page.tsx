@@ -1,90 +1,63 @@
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getPersonaMeta, personaIframeUrl } from '@/lib/worker';
-import { RealPlayerClip } from '@/components/RealPlayerClip';
-import { CrtFrame } from '@/components/CrtFrame';
+import { ResultShell } from '@/components/ResultShell';
+import { getPersonaMeta } from '@/lib/worker';
 
-export const dynamic = 'force-dynamic';
-
-export default async function ResultPage({
+export default async function StumbleResultPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   const meta = await getPersonaMeta(id);
-  if (!meta) notFound();
 
-  const iframeSrc = personaIframeUrl(id);
-  const envKey = process.env.NEXT_PUBLIC_MUX_ENV_KEY;
-
-  return (
-    <CrtFrame>
-      {/* Top bar */}
-      <div className="flex justify-between items-center py-4 px-4 bg-[#c0c0c0] text-black text-xs font-bold border-b-2 border-b-[#808080]">
-        <Link href="/" className="bevel px-3 py-1 text-xs">
-          {'< STUMBLE AGAIN'}
-        </Link>
-        <div className="flex gap-4 items-center">
-          <span>
-            💾 <span className="counter">0000</span> saved
-          </span>
-          <span className="text-[#000080]">
-            👀 <span className="blink">●</span> stumblers here
-          </span>
+  if (!meta) {
+    return (
+      <main
+        style={{
+          minHeight: '100vh',
+          background: 'radial-gradient(circle at 50% 18%, #1a1028 0%, #020205 100%)',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 24,
+          color: '#fff16a',
+          fontFamily: '"Comic Sans MS", Comic Sans, cursive',
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            border: '2px solid #ff67c8',
+            background: '#0a0614',
+            padding: '24px 32px',
+            maxWidth: 480,
+            textShadow: '0 0 8px #ff67c8',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '1.1rem' }}>
+            this page is still being built
+          </p>
+          <p style={{ margin: '8px 0 18px', color: '#c89eff' }}>
+            persona <code>{id}</code> has not tinkered yet.
+          </p>
+          <Link
+            href="/"
+            style={{
+              display: 'inline-block',
+              border: '2px solid #ff67c8',
+              color: '#ff67c8',
+              textDecoration: 'none',
+              padding: '8px 16px',
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              textShadow: '0 0 8px #ff67c8',
+            }}
+          >
+            stumble again
+          </Link>
         </div>
-      </div>
+      </main>
+    );
+  }
 
-      {/* Main: iframe + sidebar */}
-      <div className="flex gap-4 p-4">
-        {/* Iframe: agent-written Y2K page */}
-        <div className="flex-1 bg-white">
-          <iframe
-            src={iframeSrc}
-            className="w-full border-2 border-[#808080]"
-            style={{ height: 720 }}
-            title={`${meta.name}'s homepage`}
-          />
-        </div>
-
-        {/* Sidebar */}
-        <aside className="w-[340px] flex flex-col gap-4">
-          {/* Persona card */}
-          <div className="bg-[#c0c0c0] text-black border-2 border-[#808080] p-3">
-            <div className="font-bold text-sm">
-              📂 {meta.name} <span className="text-[#606060]">({meta.era})</span>
-            </div>
-            <div className="text-xs mt-1 text-[#404040]">
-              version {meta.version} · status: {meta.status}
-            </div>
-          </div>
-
-          {/* Guestbook placeholder — Jazz lands in a separate PR */}
-          <div className="bg-[#c0c0c0] text-black border-2 border-[#808080] p-3">
-            <div className="font-bold text-sm mb-2">📓 GUESTBOOK</div>
-            <div className="bg-white border border-[#808080] p-2 text-xs min-h-[120px] italic text-[#606060]">
-              (guestbook arrives with the Jazz integration — coming soon)
-            </div>
-          </div>
-
-          {/* Mux clip */}
-          {meta.muxPlaybackId && (
-            <div>
-              <div className="text-[#00ff00] text-xs mb-2 font-bold">📡 MAKING OF</div>
-              <RealPlayerClip
-                playbackId={meta.muxPlaybackId}
-                personaName={meta.name}
-                envKey={envKey}
-              />
-            </div>
-          )}
-        </aside>
-      </div>
-
-      {/* Status line */}
-      <div className="text-[#00ff00] text-xs text-center py-2 border-t border-[#303030]">
-        Status: {meta.name} is <span className="text-[#ffff00]">{meta.status}</span>.
-      </div>
-    </CrtFrame>
-  );
+  return <ResultShell meta={meta} />;
 }

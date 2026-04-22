@@ -3,33 +3,81 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+type ButtonState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string };
+
 export function StumbleButton() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<ButtonState>({ kind: 'idle' });
 
   async function onClick() {
-    setLoading(true);
-    setError(null);
+    if (state.kind === 'loading') return;
+    setState({ kind: 'loading' });
     try {
-      const res = await fetch('/api/stumble');
-      if (!res.ok) throw new Error(`stumble failed: ${res.status}`);
-      const { personaId } = (await res.json()) as { personaId: string };
-      router.push(`/s/${personaId}`);
-    } catch (err) {
-      setError((err as Error).message);
-      setLoading(false);
+      const res = await fetch('/api/stumble', { cache: 'no-store' });
+      if (res.status === 503) {
+        setState({ kind: 'error', message: 'warming up the tubes...' });
+        return;
+      }
+      if (!res.ok) {
+        setState({ kind: 'error', message: 'the internet is having a moment' });
+        return;
+      }
+      const data = (await res.json()) as { personaId: string };
+      router.push(`/s/${encodeURIComponent(data.personaId)}`);
+    } catch {
+      setState({ kind: 'error', message: 'the internet is having a moment' });
     }
   }
 
+  const accent = '#ff67c8';
+  const label =
+    state.kind === 'loading'
+      ? 'dialing in...'
+      : state.kind === 'error'
+        ? 'retry stumble'
+        : 'Stumble';
+
   return (
-    <div className="flex flex-col items-center gap-4">
-      <button className="bevel-lime" onClick={onClick} disabled={loading}>
-        {loading ? 'STUMBLING…' : '*** STUMBLE! ***'}
+    <div style={{ display: 'grid', placeItems: 'center', gap: 10 }}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={state.kind === 'loading'}
+        style={{
+          position: 'relative',
+          display: 'inline-block',
+          border: `2px solid ${accent}`,
+          background: 'linear-gradient(180deg, #1a0f2e 0%, #0a0614 100%)',
+          color: accent,
+          fontFamily: 'Impact, sans-serif',
+          fontSize: '1.35rem',
+          letterSpacing: '0.24em',
+          textTransform: 'uppercase',
+          padding: '16px 40px',
+          cursor: state.kind === 'loading' ? 'progress' : 'pointer',
+          textShadow: `0 0 8px ${accent}, 0 0 18px ${accent}`,
+          boxShadow: `0 0 0 2px rgba(0,0,0,0.6), 0 0 28px ${accent}, inset 0 0 18px rgba(255,255,255,0.05)`,
+          opacity: state.kind === 'loading' ? 0.7 : 1,
+        }}
+      >
+        {label}
       </button>
-      {error && (
-        <p className="text-red-400 font-mono text-sm">the internet is having a moment: {error}</p>
-      )}
+      {state.kind === 'error' ? (
+        <p
+          style={{
+            margin: 0,
+            fontFamily: '"Comic Sans MS", Comic Sans, cursive',
+            color: '#fff16a',
+            fontSize: '0.8rem',
+            textShadow: '0 0 8px #fff16a',
+          }}
+        >
+          {state.message}
+        </p>
+      ) : null}
     </div>
   );
 }
