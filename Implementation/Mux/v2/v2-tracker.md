@@ -39,43 +39,47 @@ Nothing user-visible. Got the platform pieces in place before touching the cycle
 
 ---
 
-## Phase 1 — Backend: real recorder
+## Phase 1 — Backend: real recorder ✅ **complete 2026-04-22**
 
-Backend before frontend so old snapshots keep working. New cycles automatically start carrying real per-cycle playback ids; the demo id becomes the fallback path, not the happy path.
+Backend before frontend so old snapshots keep working. New cycles automatically carry real per-cycle playback ids; the demo id is the fallback, not the happy path.
 
 ### 1.1 `recorder.ts` ffmpeg implementation
-- [ ] Replace [`apps/worker/src/recorder.ts`](../../../apps/worker/src/recorder.ts) no-op with real implementation
-- [ ] `logStep(name, payload)` accumulates `{ at_ms, name, payload }` (already does — keep)
-- [ ] `stop(env)`:
-  - [ ] Render timeline as SRT subtitles (one cue per status step, ~2s display each)
-  - [ ] Pick a static bg image (R2 asset key — reuse a Y2K tile)
-  - [ ] `ffmpeg -loop 1 -i bg.png -vf "subtitles=timeline.srt" -t {dur} -c:v libx264 -y /workspace/clip.mp4`
-  - [ ] Read MP4 bytes, call `uploadRecordingToMux(env, mp4)`
-  - [ ] Return `{ playbackId: real ?? env.MUX_DEMO_PLAYBACK_ID ?? null, durationSec, transcript }`
-  - [ ] On any throw → fall through to demo id, log warn, never propagate (Mux is best-effort)
+- [x] [`apps/worker/src/recorder.ts`](../../../apps/worker/src/recorder.ts) rewritten with real ffmpeg path
+- [x] `logStep` accumulates `{ name, at_ms, payload }`
+- [x] `stop(env, sandbox)`:
+  - [x] Render SRT cues — each status step displays from its `at_ms` until the next step's `at_ms` (or until `durationSec` for the last)
+  - [x] Generate Y2K-blue background via `ffmpeg lavfi color` filter — no R2 fetch needed
+  - [x] `ffmpeg -f lavfi -i color=c=#000080:s=480x270 -vf "subtitles=…:force_style=…" -c:v libx264 -preset ultrafast`
+  - [x] `readFileBytes('/workspace/clip.mp4')` then `uploadRecordingToMux(env, mp4)`
+  - [x] Returns `{ playbackId, freshUpload, durationSec, transcript }` — `freshUpload: true` only when the upload actually succeeded
+  - [x] All failure paths (ffmpeg exit, tiny mp4, upload null, throw) fall through to `env.MUX_DEMO_PLAYBACK_ID` — Mux is best-effort, never blocks
 
 ### 1.2 Sandbox API extension
-- [ ] Add `readFileBytes(path: string): Promise<Uint8Array>` to [`apps/worker/src/sandbox.ts`](../../../apps/worker/src/sandbox.ts)
-- [ ] Underlying `@cloudflare/sandbox` exposes binary read — confirm API or shell out to `base64` and decode
+- [x] `readFileBytes(path)` added to [`apps/worker/src/sandbox.ts`](../../../apps/worker/src/sandbox.ts) via `base64 -w 0` + `atob` decode (33% inflation acceptable for sub-5MB clips)
 
 ### 1.3 `runTinkerCycle` integration
-- [ ] [`apps/worker/src/persona-do.ts:119`](../../../apps/worker/src/persona-do.ts#L119): instantiate `recorder = startRecorder()` after `setStatus('editing')`
-- [ ] Tee `setStatus(s)` so each call also fires `recorder.logStep(s)` (one-line change inside `setStatus()`)
-- [ ] Replace [persona-do.ts:189-196](../../../apps/worker/src/persona-do.ts#L189) `recordSnapshot` block:
-  - [ ] `const rec = await recorder.stop(this.env);`
-  - [ ] Pass `muxPlaybackId: rec.playbackId` (was `this.env.MUX_DEMO_PLAYBACK_ID`)
-  - [ ] If `rec.playbackId` is real (not the demo fallback id), call `logCost(env, persona.id, 'mux', estimateMuxCostUsd(rec.durationSec))`
+- [x] `recorder = startRecorder()` instantiated at top of cycle (`PersonaDO.recorder` field so `setStatus` can tee into it)
+- [x] `setStatus(s)` tees into `recorder?.logStep(s)` — every status transition gets timestamped
+- [x] `editing:recording` status added between agent done and snapshot write
+- [x] `recordSnapshot` now receives `muxPlaybackId: rec.playbackId` (was hardcoded `env.MUX_DEMO_PLAYBACK_ID`)
+- [x] `logCost(persona, 'mux', estimateMuxCostUsd(durationSec))` only when `rec.freshUpload` is true (no double-billing for fallback path)
 
-### 1.4 Cost-cap interaction
-- [ ] Verify `costCapHit()` accounts for newly-logged mux rows (no code change — `totalSpendUsd` already sums all `cost_ledger` kinds)
-- [ ] Sanity check: 5 personas × 4 regenerates × $0.015 = $0.30; well under the $50 cap
+### 1.4 Mux env handling
+- [x] `MuxEnv.MUX_TOKEN_ID/SECRET` made optional in [`apps/worker/src/mux.ts`](../../../apps/worker/src/mux.ts) so `Env`-as-`MuxEnv` typechecks (matches the rest of the optional secrets in `Env`)
+- [x] `uploadRecordingToMux` short-circuits when either credential is missing — clean fallback, no malformed auth header
+- [x] `MUX_TOKEN_ID` + `MUX_TOKEN_SECRET` pushed to prod via `wrangler secret put` (were `.dev.vars`-only before this phase)
 
-### 1.5 Exit gate — backend live
-- [ ] `wrangler deploy` lands without error
-- [ ] `POST /admin/nudge/dave-001` produces a snapshot whose `mux_playback_id` is **different from** `MUX_DEMO_PLAYBACK_ID`
-- [ ] `curl /p/dave-001/meta` returns the new playback id
-- [ ] Old snapshots still resolve to demo id via `applyMuxFallback` (regression check)
-- [ ] Tail watch: zero errors, ffmpeg adds <8s to cycle time
+### 1.5 Exit gate — backend live ✅
+- [x] `wrangler deploy` succeeded — version `71ce8d40-9d78-425b-8ae3-34f9a681f497`
+- [x] **`POST /admin/nudge/dave-001` produced fresh playback id** `U02MRjjRCHG02U02n4mJUxqsB4GIzsqEE5jH7aVLVNlUvA` (different from demo id `wiZQiwUdPmDaBlrwqCS7GXBP9UhUIZLKTlY77DATpCE`)
+- [x] `curl /p/dave-001/meta` returns the new id (cache TTL 5s, picks up immediately on the next request)
+- [x] Old snapshots still resolve to demo id via `applyMuxFallback` in [`apps/worker/src/index.ts:44`](../../../apps/worker/src/index.ts#L44) — regression-clean
+- [x] Mux manifest live: `https://stream.mux.com/U02MRjjRCHG02U02n4mJUxqsB4GIzsqEE5jH7aVLVNlUvA.m3u8` returns 200
+- [x] Tail watch: zero exceptions; `sandbox.exec ffmpeg ... d=28 (1355ms)` — ffmpeg added ~1.3s, total cycle 27s → 34s (within +5-8s budget)
+
+### Gotchas captured
+- **Mux secrets must be pushed via `wrangler secret put`, not just left in `.dev.vars`.** Initial deploy passed typecheck and ran ffmpeg fine but `uploadRecordingToMux` short-circuited with `"mux: credentials missing, skipping upload"`, masking as a successful "fallback to demo id" path. The fallback chain is doing its job; this is the V1 lesson restated — always push secrets.
+- **`MuxEnv` interface had `MUX_TOKEN_ID/SECRET` as required `string`**, while `Env` declares them `string | undefined`. Made them optional everywhere and the upload short-circuit covers the missing case. Better than asserting non-null at the call site.
 
 ---
 

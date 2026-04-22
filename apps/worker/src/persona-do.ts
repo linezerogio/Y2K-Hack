@@ -1,6 +1,7 @@
 import { runCodingAgent, fallbackTemplate } from './coding-agent';
 import type { Env } from './index';
 import { writeJazzStatus } from './jazz-writer';
+import { estimateMuxCostUsd } from './mux';
 import {
   getLatestVersion,
   loadPersonaFromNeon,
@@ -9,6 +10,7 @@ import {
   totalSpendUsd,
   type Persona,
 } from './neon';
+import { startRecorder, type Recorder } from './recorder';
 import { createSandbox } from './sandbox';
 import {
   addToReadyPool,
@@ -29,6 +31,8 @@ let inFlightSandboxes = 0;
 export class PersonaDO implements DurableObject {
   private status: string = 'idle';
   private readonly statusEvents = new EventTarget();
+  /** Per-cycle recorder; set inside runTinkerCycle so setStatus can tee into it. */
+  private recorder: Recorder | null = null;
 
   constructor(
     private readonly state: DurableObjectState,
@@ -127,6 +131,7 @@ export class PersonaDO implements DurableObject {
     }
 
     inFlightSandboxes++;
+    this.recorder = startRecorder();
     this.setStatus('editing');
 
     const sandboxId = `persona-${persona.id}-${crypto.randomUUID().slice(0, 8)}`;
@@ -186,11 +191,19 @@ export class PersonaDO implements DurableObject {
       const tokenCostUsd = tokenUsage > 0 ? (tokenUsage / 1_000_000) * 1.0 : 0;
       if (tokenCostUsd > 0) await logCost(this.env, persona.id, 'gemini', tokenCostUsd);
 
+      // Record the cycle as MP4 + upload to Mux. Falls back to the v1
+      // shared demo clip on any failure — Mux is best-effort, never blocks.
+      this.setStatus('editing:recording');
+      const rec = await this.recorder!.stop(this.env, sb);
+      if (rec.freshUpload) {
+        await logCost(this.env, persona.id, 'mux', estimateMuxCostUsd(rec.durationSec));
+      }
+
       await recordSnapshot(this.env, {
         personaId: persona.id,
         version,
         htmlKvKey: `page:${persona.id}:v${version}`,
-        muxPlaybackId: this.env.MUX_DEMO_PLAYBACK_ID ?? null, // Option A: shared demo clip
+        muxPlaybackId: rec.playbackId,
         sandboxLog: transcript,
         tokenCostUsd,
       });
@@ -211,6 +224,7 @@ export class PersonaDO implements DurableObject {
         console.warn('[sandbox.destroy]', (err as Error).message);
       }
       inFlightSandboxes--;
+      this.recorder = null;
       this.setStatus('idle');
     }
   }
@@ -256,6 +270,8 @@ export class PersonaDO implements DurableObject {
   private setStatus(status: string): void {
     this.status = status;
     this.statusEvents.dispatchEvent(new CustomEvent('status', { detail: status }));
+    // Tee into recorder so each cycle's MP4 timeline matches what SSE+Jazz showed.
+    this.recorder?.logStep(status);
     // Jazz fan-out: persona's id was stashed on first fetch. Fire-and-forget
     // so a slow Jazz sync doesn't block the status transition.
     void this.state.storage.get<string>('personaId').then(async (personaId) => {
