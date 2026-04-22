@@ -25,7 +25,7 @@ const metaCache = new Map<string, { at: number; value: PersonaMeta | null }>();
 const COST_CACHE_TTL_MS = 2_000;
 let costCache: { at: number; value: number } | null = null;
 
-const PERSONA_COUNT = 20;
+const PERSONA_COUNT = 5;
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {

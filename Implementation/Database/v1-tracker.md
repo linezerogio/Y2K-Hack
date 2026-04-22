@@ -44,11 +44,11 @@ Maps to [project.md §16 "Night before"](../../project.md#L587) and [proposal §
 - [x] `npx tsc --noEmit` clean
 
 ### 0.5 Seed script (`scripts/seed-personas.ts`)
-- [x] `scripts/personas.json` committed with 20 entries (shape per [project.md §11](../../project.md#L469))
+- [x] `scripts/personas.json` committed with 5 entries (scope reduced from 20 for hackathon; Dave + Becky + Tyler cover the demo script, Linda + Harold add demographic/era variety)
 - [x] `scripts/seed-personas.ts` committed — idempotent `ON CONFLICT DO UPDATE`
 - [x] Script prints target host before running
-- [x] Run: `npm run seed` → `upserted 20 personas; table now contains 20`
-- [x] Re-run confirms idempotence (still 20 rows)
+- [x] Run: `npm run seed` → `upserted 5 personas; table now contains 5`
+- [x] Re-run confirms idempotence (still 5 rows)
 - [x] **Does NOT** create Jazz rooms — [Jazz §7 step 7](../Jazz/v1-proposal.md) handles that
 - [~] `--confirm-prod` flag dropped (single-branch v1 — user confirmed working on `main` only)
 

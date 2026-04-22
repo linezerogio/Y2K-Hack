@@ -42,9 +42,7 @@ console.log(`seeding → ${host}`);
 const personasPath = resolve(import.meta.dirname ?? '.', 'personas.json');
 const personas: Persona[] = JSON.parse(readFileSync(personasPath, 'utf8'));
 
-if (personas.length !== 20) {
-  console.warn(`warning: expected 20 personas, got ${personas.length}`);
-}
+console.log(`loaded ${personas.length} personas from personas.json`);
 
 const sql = neon(url);
 

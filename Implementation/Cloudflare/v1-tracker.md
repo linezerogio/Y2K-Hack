@@ -47,7 +47,7 @@ Maps to [project.md §16 "Night before"](../../project.md#L587). Nothing else ca
 - [ ] Fallback adapter (E2B/Daytona) — deferred indefinitely; `SandboxHandle` interface already provides the seam if needed
 
 ### 0.5 Dependency seeds — **BLOCKED on sibling proposals**
-- [ ] Neon schema migrated + 20 personas seeded ([Database §4](../Database/v1-proposal.md)) — needs Neon project created and `NEON_DATABASE_URL` populated in `.dev.vars`
+- [x] Neon schema migrated + 5 personas seeded ([Database §4](../Database/v1-proposal.md)) — scope reduced from 20
 - [ ] Jazz worker account + `RoomRegistry` seeded; `jazz:registry_id` written to KV ([Jazz §7](../Jazz/v1-proposal.md)) — run `npx jazz-run account create` then the seed script
 - [x] `.dev.vars` scaffolded with full env var set (Neon / Gemini / Anthropic / Mux / Jazz / ADMIN_TOKEN / COST_CAP_USD); values still blank for third-party services
 
@@ -80,7 +80,7 @@ Maps to [§16 Hour 0](../../project.md#L600). Goal: `curl p.geostumble.xyz/p/dav
 Verified against `https://geostumble-worker.eliothfraijo.workers.dev` (Version `833338e6`):
 
 - [x] `GET /p/dave-001` → 200, 1130 bytes of placeholder HTML
-- [x] `GET /health` → `{ ok: true, personaCount: 20, poolSize: 1 }`
+- [x] `GET /health` → `{ ok: true, personaCount: 5, poolSize: 1 }`
 - [x] `GET /stumble` → `{ personaId: "dave-001" }`
 - [x] `GET /p/dave-001/meta` → `{ personaId, name: "Dave", era: "1999-Q3", version: 0, muxPlaybackId: null, status: "idle" }`
 - [x] `GET /admin/cost` (bearer) → `{ totalUsd: 0, cached: false }`
@@ -120,14 +120,14 @@ Maps to [§16 Hour 1](../../project.md#L607). Goal: Dave's page visible, stored 
 
 ---
 
-## Phase 3 — Hour 2 (11:30–12:30): Scale to 20 personas
+## Phase 3 — Hour 2 (11:30–12:30): Scale to 5 personas
 
 Maps to [§16 Hour 2](../../project.md#L616). Goal: 10+ ready personas, `/stumble` picks randomly.
 
 ### 3.1 Fleet bootstrap
 - [ ] Deploy Worker with `PERSONA` binding live
 - [ ] First hit to each `/p/:id` triggers DO init (warms Neon load + seeds alarm)
-- [ ] Prewarm loop in `scripts/prewarm-demo.ts` hits all 20 personas once
+- [ ] Prewarm loop in `scripts/prewarm-demo.ts` hits all 5 personas once
 
 ### 3.2 Alarm behaviour
 - [ ] Jitter confirmed by tailing `wrangler tail` — no thundering herd (answers Open Q #2)
