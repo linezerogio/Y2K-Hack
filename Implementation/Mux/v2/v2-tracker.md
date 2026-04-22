@@ -7,29 +7,35 @@
 
 ---
 
-## Phase 0 — Prereqs
+## Phase 0 — Prereqs ✅ **complete 2026-04-22**
 
-Nothing user-visible. Get the platform pieces in place before touching the cycle path.
+Nothing user-visible. Got the platform pieces in place before touching the cycle path.
 
 ### 0.1 Secrets & env wiring
-- [ ] `WORKER_ADMIN_TOKEN` added to `geostumble-web` worker (`wrangler secret put WORKER_ADMIN_TOKEN` — must mirror the agent worker's `ADMIN_TOKEN`)
-- [ ] `WORKER_ADMIN_TOKEN` added to `apps/web/.env.example` (server-side only, **never** prefixed `NEXT_PUBLIC_`)
-- [ ] Local `apps/web/.env.local` updated for `npm run preview`
+- [x] `WORKER_ADMIN_TOKEN` added to `apps/web/.env.example` (server-side only, never prefixed `NEXT_PUBLIC_`)
+- [x] Local `apps/web/.env.local` updated, mirrors agent worker's `ADMIN_TOKEN`
+- [ ] `WORKER_ADMIN_TOKEN` pushed to `geostumble-web` worker (`wrangler secret put WORKER_ADMIN_TOKEN`) — **deferred to Phase 2.1**, only needed once `/api/regenerate` ships
 
 ### 0.2 Container image — ffmpeg
-- [ ] `apt-get install -y ffmpeg` added to [`apps/worker/Dockerfile`](../../../apps/worker/Dockerfile)
-- [ ] Local container rebuild: `cd apps/worker && npx wrangler deploy --dry-run` succeeds without busting the size budget
-- [ ] Smoke `ffmpeg -version` inside the sandbox via `/admin/smoke/sandbox` (extend the smoke route or add `?cmd=ffmpeg` query param)
-- [ ] Decision logged: target output is `~30s, 480p, h264, no audio` (~1-2 MB per cycle, well under Mux upload limits)
+- [x] `apt-get install -y ffmpeg` added to [`apps/worker/Dockerfile`](../../../apps/worker/Dockerfile) **as a separate RUN layer** (combining with the tidy line silently dropped ffmpeg in the build cache — kept ffmpeg in its own layer so failures are loud)
+- [x] Smoke `ffmpeg -version` wired into `/admin/smoke/sandbox` ([`apps/worker/src/index.ts:200`](../../../apps/worker/src/index.ts#L200)). Verified: `ffmpegHead: "ffmpeg version 4.4.2-0ubuntu0.22.04.1"` in production
+- [x] Image deployed — `:63f149ba` is current, holds tidy + ffmpeg
+- [—] Decision logged: target output is `~30s, 480p, h264, no audio` (Phase 1 will lock the actual ffmpeg invocation)
 
 ### 0.3 Frontend dependency
-- [ ] Verify `@mux/mux-player-react` is actually installed (it's listed in `apps/web/package.json` from v1 scaffold but never imported)
-- [ ] Tree-shake check: bundle stays under the OpenNext 1MB worker entry budget after import
+- [x] `@mux/mux-player-react ^3.11.8` confirmed installed and importable (`Object.keys()` returns expected exports)
+- [—] Tree-shake check deferred to Phase 3 (when the player actually mounts)
 
-### 0.4 Exit gate
-- [ ] `wrangler deploy` of agent worker with new ffmpeg layer succeeds
-- [ ] `wrangler deploy` of `geostumble-web` with new env var succeeds
-- [ ] No regression: `curl https://geostumble-web.eliothfraijo.workers.dev/api/stumble` still returns a personaId
+### 0.4 Exit gate ✅
+- [x] Agent worker deployed with new ffmpeg layer — version `b3542b96-8de9-4743-bacf-5541065e8103`
+- [x] `geostumble-web` regression check: `/api/stumble` returns persona, `/s/dave-001` returns 200
+- [x] No worker typecheck errors after smoke route additions
+- [—] `wrangler secret put WORKER_ADMIN_TOKEN` on `geostumble-web` — moved to Phase 2.1 (no consumer yet)
+
+### Gotchas captured
+- **Wrangler containers won't update the application image when only the Dockerfile changes.** It builds + pushes a new tag (`Image already exists remotely, skipping push` even when content differs), but the `[[containers]]` application config keeps pointing at the old tag. Fix: pin `image = "registry.cloudflare.com/.../geostumble-worker-sandbox:<tag>"` explicitly in `wrangler.toml`. To rebuild → flip back to `image = "./Dockerfile"`, deploy, grab new tag from `wrangler containers images list`, then re-pin. Documented inline in [`apps/worker/wrangler.toml`](../../../apps/worker/wrangler.toml#L36).
+- **Combining `apt-get install tidy ffmpeg` in one RUN layer silently dropped ffmpeg** in the cached build path. Splitting into separate RUN instructions made the failure loud and the install visible. ffmpeg in Ubuntu jammy is in `universe` — it works fine, but only if the layer actually rebuilds.
+- **Container rollout is not instant** even with `--containers-rollout immediate`. Took ~75 seconds for `provisioning → ready` plus another ~60s for new sandbox DOs to start pulling the new image. Plan for ~2 min of "old image still serving" after every container deploy.
 
 ---
 
