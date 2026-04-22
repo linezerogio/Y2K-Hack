@@ -35,7 +35,14 @@ bucket_name = "geostumble-assets"
 # container image is the SDK's own Dockerfile.
 [[containers]]
 class_name = "Sandbox"
-image = "./Dockerfile"
+# Pinned to the explicit registry tag (built from ./Dockerfile on
+# 2026-04-22) because wrangler's auto-build path doesn't reliably update
+# the application's image reference when only the Dockerfile changes —
+# it builds + pushes a new tag but skips the application config update.
+# To rebuild: temporarily flip back to image = "./Dockerfile", run
+# `wrangler deploy --containers-rollout immediate`, grab the new tag
+# from `wrangler containers images list`, then re-pin here.
+image = "registry.cloudflare.com/b84db7db3369258b9b30a8d8741377d0/geostumble-worker-sandbox:63f149ba"
 max_instances = 5
 instance_type = "standard-1"
 

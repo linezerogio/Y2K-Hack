@@ -197,12 +197,15 @@ async function handleSandboxSmoke(req: Request, env: Env): Promise<Response> {
     await sb.writeFile('/workspace/index.html', html);
     const readBack = await sb.readFile('/workspace/index.html');
     const tidy = await sb.exec('/usr/bin/tidy -errors -q /workspace/index.html 2>&1 || true');
+    // Mux V2 dependency: confirm ffmpeg is present in the container image.
+    const ffmpeg = await sb.exec('ffmpeg -version 2>&1 | head -1 || echo MISSING');
 
     return json({
       ok: readBack === html,
       readBackBytes: readBack.length,
       tidyExitCode: tidy.exitCode,
       tidyTail: tidy.stdout.slice(-500),
+      ffmpegHead: ffmpeg.stdout.slice(0, 200).trim(),
       elapsedMs: Date.now() - started,
     });
   } finally {
