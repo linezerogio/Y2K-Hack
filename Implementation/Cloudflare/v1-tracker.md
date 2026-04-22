@@ -48,7 +48,7 @@ Maps to [project.md §16 "Night before"](../../project.md#L587). Nothing else ca
 
 ### 0.5 Dependency seeds — **BLOCKED on sibling proposals**
 - [x] Neon schema migrated + 5 personas seeded ([Database §4](../Database/v1-proposal.md)) — scope reduced from 20
-- [~] Jazz worker account created (`co_zDjRJynhDQrQLMG5fUGBjEvQQUN`, in `.dev.vars`). `RoomRegistry` seed + `jazz:registry_id` KV write pending — tracked in [Jazz 0.1 / 0.6](../Jazz/v1-tracker.md)
+- [x] Jazz worker account (`co_zDjRJynhDQrQLMG5fUGBjEvQQUN`) + `RoomRegistry` (`co_zAMBDSKQyYEvJ1FZetCbXzcGPku`) seeded and written to KV `jazz:registry_id`. Worker-side fan-out live — see §4.1.
 - [x] `.dev.vars` scaffolded with full env var set (Neon / Gemini / Anthropic / Mux / Jazz / ADMIN_TOKEN / COST_CAP_USD)
 - [x] Mux credentials captured (`MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_DEMO_PLAYBACK_ID`) — ready for Phase 5
 - [x] Asset scrape (`scripts/scrape-assets.ts`) — **shipped**, 108 real Y2K assets in R2 + manifest. §2.3 "hallucinated asset keys 404" known nit is closed — verified 11/11 URLs across dave-001 + harold-005 return 200.
@@ -199,10 +199,10 @@ Maps to [§16 Hour 3](../../project.md#L625). Goal: status / guestbook / presenc
 - [x] `/p/:id/stream` emits `status` events from DO-local `EventTarget` (shipped as part of §1.2)
 - [x] Verified during Phase 2 exit gate: `curl -N` during a nudge emits `idle → editing → editing:iteration-N → editing:saving → idle`
 
-### 4.3 Exit gate — **partial**
+### 4.3 Exit gate — **Worker piece done**
+- [x] Worker-side Jazz write plumbing deployed and actively fanning out to the seeded `RoomRegistry`
 - [ ] StatusBanner on `/s/{id}` flips live during a nudge — owned by [Frontend §4](../Frontend/v1-proposal.md)
 - [ ] Guestbook write from browser lands in Jazz — owned by [Jazz v1-tracker](../Jazz/v1-tracker.md)
-- [x] Worker-side Jazz write plumbing deployed and no-ops gracefully until Jazz seed script runs
 
 ---
 
