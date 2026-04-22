@@ -57,6 +57,13 @@ ASSETS_PUBLIC_URL = "https://pub-7313ad06136f4e89bec6f10ac19488c8.r2.dev"
 # JAZZ_WORKER_*, JAZZ_REGISTRY_ID, ADMIN_TOKEN) live in .dev.vars locally
 # and are pushed via `wrangler secret put` for the deployed Worker.
 
+# --- Module rules ------------------------------------------------------------
+# Bundle .md prompts as Text so the coding agent can import them directly.
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
 # --- Observability -----------------------------------------------------------
 [observability]
 enabled = true

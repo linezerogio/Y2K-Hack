@@ -15,12 +15,12 @@ Maps to [project.md §16 "Night before"](../../project.md#L587) and [proposal §
 - [x] Neon project created — `withered-wildflower-95411406`
 - [x] Region `aws-us-east-1` confirmed
 - [x] Working on `main` branch (no `dev` branch for v1)
-- [ ] `main` autosuspend **off** (critical — avoid cold-start mid-demo)
-- [ ] Pooled connection string captured (`-pooler` suffix)
+- [ ] `main` autosuspend **off** (critical — avoid cold-start mid-demo; still pending user dashboard toggle)
+- [x] Pooled connection string captured: `ep-tight-rice-71595200-pooler.us-east-1.aws.neon.tech`
 
 ### 0.2 Secrets
 - [x] `NEON_DATABASE_URL` (pooled, `main`) → `apps/worker/.dev.vars`
-- [ ] `wrangler secret put NEON_DATABASE_URL` for deployed Worker
+- [x] `wrangler secret put NEON_DATABASE_URL` for deployed Worker (confirmed: prod `/admin/cost` and `/p/:id/meta` respond from Neon — see [Cloudflare §1.3 exit gate](../Cloudflare/v1-tracker.md))
 - [x] Confirmed **no** `NEON_*` var in Vercel env (Worker is sole DB client — [proposal §1](./v1-proposal.md))
 
 ### 0.3 Schema
@@ -67,8 +67,15 @@ Maps to [project.md §16 "Night before"](../../project.md#L587) and [proposal §
 
 ## Phase 1 — Hour 0 (09:30–10:30): Worker wiring
 
-Worker consumes `neon.ts`; no new DB work, but verify the integration.
+Worker consumes `neon.ts` at two layers: the router (meta + cost) and, from Phase 2 onward, the DO constructor.
 
+### 1.1 Router-layer integration (live in prod)
+- [x] `GET /p/:id/meta` calls `getPersonaMeta` with a 5s in-memory cache keyed by persona id
+- [x] `GET /admin/cost` calls `totalSpendUsd` with a 2s cache
+- [x] `GET /p/dave-001/meta` verified in prod → `{ personaId: "dave-001", name: "Dave", era: "1999-Q3", version: 0, muxPlaybackId: null, status: "idle" }`
+- [x] `GET /admin/cost` verified in prod → `{ totalUsd: 0, cached: false }`
+
+### 1.2 DO-layer integration (deferred to Phase 2)
 - [ ] `PersonaDO.constructor` calls `loadPersonaFromNeon` under `blockConcurrencyWhile`
 - [ ] Persona row cached in DO storage on first call; second `fetch()` does not hit DB
 - [ ] `wrangler tail` shows exactly one Neon query per DO cold start
@@ -88,11 +95,11 @@ Maps to [§16 Hour 1](../../project.md#L607). Goal: Dave's `page_snapshots` v1 r
 
 ## Phase 3 — Hour 2 (11:30–12:30): Fleet
 
-Maps to [§16 Hour 2](../../project.md#L616).
+Maps to [§16 Hour 2](../../project.md#L616). Scope reduced from 20 → 5 personas.
 
-- [ ] All 20 DOs load their persona row without error
+- [ ] All 5 DOs load their persona row without error
 - [ ] No Neon-side rate limit warnings in `wrangler tail`
-- [ ] Peak observed QPS < 5 (sanity check vs [proposal §5](./v1-proposal.md) projection)
+- [ ] Peak observed QPS < 5 (trivial at this fleet size vs [proposal §5](./v1-proposal.md) projection)
 
 ---
 
@@ -141,7 +148,7 @@ Maps to [project.md §18](../../project.md#L667).
 
 - [ ] **Neon cold start on first DO boot** — mitigated by autosuspend-off on `main` + 09:45 `SELECT 1` prewarm
 - [ ] **Accidental `pg` import** — guarded by code review; re-check at end of Hour 0
-- [ ] **Seed script against `main`** — guarded by `--confirm-prod` flag
+- [~] **Seed script against `main`** — `--confirm-prod` flag dropped (single-branch v1); seed script prints target host before running as partial safeguard
 - [ ] **Snapshot insert race** — guarded by `UNIQUE (persona_id, version)` + DO single-threading invariant ([proposal §7](./v1-proposal.md)): *all* `page_snapshots` writes must go through the per-persona DO
 - [ ] **`cost_ledger` unbounded growth** — accepted for demo; post-event truncate
 
@@ -150,10 +157,12 @@ Maps to [project.md §18](../../project.md#L667).
 ## Deliverables checklist (mirrors [proposal §8](./v1-proposal.md))
 
 - [x] Neon project `withered-wildflower-95411406` created, `main` branch
-- [ ] `main` autosuspend off (still pending user confirmation in dashboard)
+- [ ] `main` autosuspend off (still pending user dashboard toggle)
 - [x] `apps/worker/db/schema.sql` committed and applied
 - [x] `apps/worker/src/neon.ts` committed with 6 functions
-- [x] `scripts/seed-personas.ts` + `scripts/personas.json` (20 entries) committed and run
-- [ ] `NEON_DATABASE_URL` set in Wrangler secrets for deployed Worker
+- [x] `scripts/seed-personas.ts` + `scripts/personas.json` (5 entries) committed and run
+- [x] `NEON_DATABASE_URL` set in Wrangler secrets for deployed Worker (verified via live `/admin/cost` + `/p/:id/meta` responses)
 - [x] `scripts/smoke.ts` inserts+reads `cost_ledger`, exits 0
-- [ ] One dry-run tinker cycle writes exactly one `page_snapshots` row (blocked on Phase 2)
+- [x] `getPersonaMeta` consumed live by prod Worker (`/p/:id/meta`)
+- [x] `totalSpendUsd` consumed live by prod Worker (`/admin/cost`)
+- [ ] One dry-run tinker cycle writes exactly one `page_snapshots` row (blocked on Phase 2 — `runTinkerCycle` wiring)

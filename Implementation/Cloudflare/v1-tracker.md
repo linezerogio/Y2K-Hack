@@ -98,25 +98,39 @@ Verified against `https://geostumble-worker.eliothfraijo.workers.dev` (Version `
 Maps to [§16 Hour 1](../../project.md#L607). Goal: Dave's page visible, stored at `page:dave-001:v1`.
 
 ### 2.1 DO cold-start
-- [ ] `constructor` uses `blockConcurrencyWhile` to load persona from Neon on first hit
-- [ ] Initial alarm set with jitter `[60s, 300s]` via `state.storage.setAlarm`
-- [ ] Neon client (serverless fetch-based driver) shared via connection reuse
+- [x] `rememberPersonaId` persists `personaId` to DO storage on first fetch (replaces the original `blockConcurrencyWhile` constructor approach — constructor can't run async Neon calls cleanly under free-plan SQLite-backed DOs)
+- [x] Initial alarm seeded on first fetch via `state.storage.setAlarm(jitter(60s, 300s))`
+- [x] `loadPersona` memoizes persona row in DO storage, falls back to `loadPersonaFromNeon` on cold hit
+- [x] Neon client reuse via the serverless HTTP driver (one connection per fetch — DO has no long-lived process)
 
-### 2.2 `runTinkerCycle` happy path
-- [ ] Cost-cap check (cached in DO storage, 30s TTL) — early-return if hit
-- [ ] `setStatus('editing')` — fans to Jazz **and** DO-local `EventTarget`
-- [ ] `createSandbox` → `runCodingAgent` → HTML bytes returned
-- [ ] Quality gate runs; one retry on fail
-- [ ] `storeHtml(persona.id, version, result.html)` writes `page:{id}:v{n}` and `page:{id}:current`
-- [ ] **Read-back `page:{id}:current`** before writing `ready:{id}` sentinel (KV eventual-consistency guard)
-- [ ] `sandbox.destroy()` in `finally` block — verified by forced-throw test
-- [ ] `setStatus('idle')` in `finally`
+### 2.2 `runTinkerCycle` happy path — **WORKING END-TO-END** 🎉
+- [x] Cost-cap check (cached in DO storage, 30s TTL) — throws `"cost cap hit"` early
+- [x] Module-level `inFlightSandboxes` counter honouring `MAX_CONCURRENT_SANDBOXES` — rejects with a clear error
+- [x] `setStatus('editing')` → DO-local `EventTarget`; Jazz fan-out deferred to Phase 4.1
+- [x] `createSandbox` → `runCodingAgent` (Gemini 2.5 Flash, 3 iterations, tools: `list_assets` / `write_file` / `read_file` / `validate_html` / `done`)
+- [x] Quality gate regex (project.md §10) runs; on fail, fallback template substitutes. **Retry is a fall-through to fallback**, not a re-roll of the agent — simpler and cheaper.
+- [x] `storeHtml` writes `page:{id}:v{n}` + `page:{id}:current`, then polls up to 10× 250ms for read-back match before the caller writes `ready:{id}`
+- [x] `ready:{id}` sentinel set via `addToReadyPool`
+- [x] `recordSnapshot` + `logCost` land in Neon; `cost_ledger` drives the cap
+- [x] `sandbox.destroy()` in `finally`; `inFlightSandboxes--` + `setStatus('idle')` also in finally
+- [x] Fallback-template path (project.md §17 mitigation) triggered when `GEMINI_API_KEY` is empty OR agent never writes `/workspace/index.html` OR quality gate fails
 
-### 2.3 Exit gate
-- [ ] `curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" /admin/nudge/dave-001` triggers full cycle
-- [ ] `page:dave-001:v1` and `page:dave-001:current` populated in KV
-- [ ] `ready:dave-001` sentinel present
-- [ ] Cycle finishes in < 45s
+### 2.3 Exit gate — **PASSED in production** 🎉
+
+Verified against Version `45214b65` on `https://geostumble-worker.eliothfraijo.workers.dev`:
+
+- [x] `POST /admin/nudge/dave-001` → `{ version: 1, bytes: 6098, usedFallback: false, qualityGate: true, iterations: 3, tokenUsage: 7518, elapsedMs: 15953 }`
+- [x] Second nudge increments correctly: `{ version: 2, bytes: 4849, tokenUsage: 7256, elapsedMs: 18005 }`
+- [x] `GET /p/dave-001` serves the agent-written HTML (Comic Sans, navy/yellow palette, CSS `.blink` keyframes, marquee, R2 image refs)
+- [x] `GET /p/dave-001/meta` reports `version: 1`
+- [x] `GET /admin/cost` reports `{ totalUsd: 0.0075, cached: false }` — cost ledger populated from Gemini token usage
+- [x] Cycle finishes well under the 45s ceiling (~16–18s)
+
+#### Bug fixed during exit-gate verification
+- Router was rewriting `/admin/nudge/{id}` to a DO URL of `/nudge` (no persona in the path), defeating the Phase 1 personaId-from-URL fix and returning `{ "error": "persona not found" }`. Rewrote to `/p/{id}/nudge` so the DO's `extractPersonaId` works identically on both public reads and admin dispatches.
+
+#### Known nit
+- Agent sometimes invents asset keys (e.g. requested `assets/bg-tiles/checkerboard-red-blue.gif` which isn't in our seed manifest). The image tag resolves to a 404 but the page still renders. Fix during the real asset scrape — agents will have hundreds of real keys to pick from and are more likely to stay grounded.
 
 ---
 

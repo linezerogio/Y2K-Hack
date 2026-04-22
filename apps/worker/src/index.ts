@@ -12,6 +12,8 @@ export interface Env {
   ADMIN: KVNamespace;
   ASSETS: R2Bucket;
   NEON_DATABASE_URL: string;
+  GEMINI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
   EDIT_PROBABILITY?: string;
   MAX_CONCURRENT_SANDBOXES?: string;
   COST_CAP_USD?: string;
@@ -128,7 +130,9 @@ async function handleAdmin(req: Request, env: Env): Promise<Response> {
   if (nudgeMatch && req.method === 'POST') {
     const [, personaId] = nudgeMatch;
     const stub = env.PERSONA.get(env.PERSONA.idFromName(personaId));
-    return stub.fetch(new Request(`https://do/nudge`, { method: 'POST' }));
+    // Preserve personaId in URL path so DO.fetch can extract it via the
+    // same regex used for /p/:id reads.
+    return stub.fetch(new Request(`https://do/p/${personaId}/nudge`, { method: 'POST' }));
   }
 
   return new Response('not found', { status: 404 });
