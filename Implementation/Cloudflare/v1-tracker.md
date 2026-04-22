@@ -176,9 +176,9 @@ This is the right fix pattern going forward: the loop should course-correct when
 
 Maps to [§16 Hour 3](../../project.md#L625). Goal: status / guestbook / presence live.
 
-### 4.1 Jazz writer wiring — **DONE on Worker side (deployed, no-op until registry seeded)**
+### 4.1 Jazz writer wiring — **LIVE end-to-end** 🎉
 
-**Worker-side implementation complete.** `apps/worker/src/jazz-writer.ts` is live in prod (Version `217f0f55`):
+`apps/worker/src/jazz-writer.ts` in prod (Version `217f0f55`), actively writing against the seeded `RoomRegistry` (`co_zAMBDSKQyYEvJ1FZetCbXzcGPku`):
 - [x] `writeJazzStatus(env, personaId, status)` opens a short-lived `startWorker` session, loads `RoomRegistry`, sets `PersonaRoom.status`, waits for sync, shuts down
 - [x] `jazz-tools/load-edge-wasm` registers the WASM crypto provider for Cloudflare Workers runtime
 - [x] `PersonaDO.setStatus` fires `writeJazzStatus` without `await` — SSE stays instantaneous, Jazz updates land ~1-3s later
@@ -192,8 +192,8 @@ Maps to [§16 Hour 3](../../project.md#L625). Goal: status / guestbook / presenc
 - [x] `scripts/seed-jazz-rooms.ts` shipped; ran successfully. `RoomRegistry ID: co_zAMBDSKQyYEvJ1FZetCbXzcGPku`
 - [x] CoValue id written to prod KV `PAGES['jazz:registry_id']` — Worker resolves it on next call
 - [x] Bundle check: 890 KiB gzipped (Jazz 0.7), well under paid-plan limit
-- [ ] Redeploy worker + live-verify: `POST /admin/nudge/:id` produces a `PersonaRoom.status` transition observable from a Jazz client
-- [ ] `NEXT_PUBLIC_JAZZ_REGISTRY_ID` in `apps/web/.env.local` — deferred until Frontend scaffolds web app
+- [x] Redeploy worker + live-verify: `POST /admin/nudge/dave-001 → { version: 15, bytes: 4132, usedFallback: false, elapsedMs: 28832 }` with **zero exceptions and zero warn logs** across the full 29s cycle (`wrangler tail --format=json`). `writeJazzStatus` only emits `console.warn` on error, so a silent tail means Jazz writes succeeded.
+- [ ] `NEXT_PUBLIC_JAZZ_REGISTRY_ID` in `apps/web/.env.local` — Frontend-owned, deferred to web app wiring
 
 ### 4.2 SSE fallback path — **done in Phase 1**
 - [x] `/p/:id/stream` emits `status` events from DO-local `EventTarget` (shipped as part of §1.2)

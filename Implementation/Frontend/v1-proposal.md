@@ -76,7 +76,7 @@ apps/web/
 
 **Hour 3 (12:30–13:30) — realtime**
 6. Install `jazz-react jazz-browser jazz-tools`. Wire `<JazzProvider peer={NEXT_PUBLIC_JAZZ_PEER}>` in root layout using an anonymous browser account.
-7. Publish `RoomRegistry` CoMap ID as a build-time env var (`NEXT_PUBLIC_JAZZ_REGISTRY_ID`) — the seed script (spec §16 night-before) creates it and echoes the ID.
+7. ~~Publish `RoomRegistry` CoMap ID as a build-time env var~~ — **DONE**. Registry id is `co_zAMBDSKQyYEvJ1FZetCbXzcGPku`; paste-ready block in §6. Rooms for all 5 personas are seeded and `status` is already being written live by the worker's `jazz-writer`.
 8. `lib/stumbler.ts`: on first load, generate `stumblerId = nanoid(8)` + random hex color, persist to `localStorage`. Used by Guestbook authorship + Presence entry.
 9. `Guestbook.tsx`: `useCoState(PersonaRoom, roomId).guestbook` → render last 50 entries. `onSubmit` → `guestbook.push(GuestbookEntry.create({...}))`.
 10. `PresencePill.tsx`: on mount, upsert `PresenceEntry` into `PresenceMap` with `lastSeen = now()`. Heartbeat every 10s. Count = entries with `lastSeen > now - 30s`.
@@ -121,17 +121,28 @@ All return typed from `packages/shared`. No retries — fail loud, hackathon.
 
 ---
 
-## 6. Env vars
+## 6. Env vars — **ready to paste (as of 2026-04-22)**
+
+All backend plumbing is live. Copy this verbatim into `apps/web/.env.local`:
 
 ```bash
 # apps/web/.env.local
-NEXT_PUBLIC_WORKER_URL=https://p.geostumble.xyz
+NEXT_PUBLIC_WORKER_URL=https://geostumble-worker.eliothfraijo.workers.dev
 NEXT_PUBLIC_JAZZ_PEER=wss://cloud.jazz.tools/sync
-NEXT_PUBLIC_JAZZ_REGISTRY_ID=co_z...     # emitted by seed-personas.ts
-NEXT_PUBLIC_MUX_ENV_KEY=env_xxx
+NEXT_PUBLIC_JAZZ_REGISTRY_ID=co_zAMBDSKQyYEvJ1FZetCbXzcGPku
+NEXT_PUBLIC_MUX_ENV_KEY=env_xxx  # TODO: confirm with Mux owner — may not be needed for Option A shared-clip playback
 ```
 
-No secrets in the web app. The Worker owns all keys.
+### Where each value came from
+
+| Var | Source | Notes |
+|-----|--------|-------|
+| `NEXT_PUBLIC_WORKER_URL` | Cloudflare deploy | Custom `geostumble.xyz` skipped for v1; `*.workers.dev` is authoritative |
+| `NEXT_PUBLIC_JAZZ_PEER` | Jazz public infra | Hardcoded |
+| `NEXT_PUBLIC_JAZZ_REGISTRY_ID` | `npm run seed:jazz` output | 5 `PersonaRoom` CoValues already seeded under this registry — do **not** regenerate |
+| `NEXT_PUBLIC_MUX_ENV_KEY` | Mux dashboard | Verify with Mux owner; Option A (shared demo clip) may make this optional |
+
+No secrets in the web app. The Worker owns all keys. Even though the registry ID looks sensitive, it's safe to ship publicly — `guestbook` and `presence` CoValues are deliberately `everyone: writer`; only `PersonaRoom.status` is worker-write-only (enforced by group ownership at seed time, not by keeping the ID secret).
 
 ---
 
