@@ -30,7 +30,7 @@ export interface AgentResult {
 }
 
 const GEMINI_MODEL = 'gemini-3-flash-preview';
-const MAX_ITERATIONS = 3;
+const MAX_ITERATIONS = 6;
 
 const TOOLS: FunctionDeclaration[] = [
   {
@@ -87,8 +87,21 @@ export async function runCodingAgent(ctx: AgentContext): Promise<AgentResult> {
   const transcript: string[] = [`SYSTEM:\n${systemInstruction}`, `USER:\n${userPrompt}`];
   let tokenUsage = 0;
 
+  let iterationsUsed = 0;
+  let sawWriteFile = false;
   for (let i = 0; i < MAX_ITERATIONS; i++) {
+    iterationsUsed = i + 1;
+    transcript.push(`\n--- ITERATION ${i + 1} ---`);
     ctx.onStep(`iteration-${i + 1}`);
+
+    // Mid-loop nudge: if the agent has spent 2 turns exploring without
+    // writing, insert a user reminder to commit to a write_file call.
+    if (i === 3 && !sawWriteFile) {
+      const reminder =
+        'STOP calling list_assets. You have seen enough. On your next turn, call write_file with the COMPLETE HTML for /workspace/index.html — use the assets you already have. If a tag returned no results, improvise. The page needs tables, marquee, background, Comic Sans, a fake hit counter, and a last-updated date 1998-2001.';
+      contents.push({ role: 'user', parts: [{ text: reminder }] });
+      transcript.push(`REMINDER INJECTED: ${reminder}`);
+    }
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents,
@@ -130,6 +143,7 @@ export async function runCodingAgent(ctx: AgentContext): Promise<AgentResult> {
         sawDone = true;
         break;
       }
+      if (call.name === 'write_file') sawWriteFile = true;
       const result = await executeTool(ctx, call);
       transcript.push(`TOOL RESULT: ${JSON.stringify(result).slice(0, 400)}`);
       responseParts.push({
@@ -160,7 +174,7 @@ export async function runCodingAgent(ctx: AgentContext): Promise<AgentResult> {
   return {
     html,
     transcript: transcript.join('\n\n').slice(0, 20_000),
-    iterations: MAX_ITERATIONS,
+    iterations: iterationsUsed,
     usedFallback,
     tokenUsage,
   };
