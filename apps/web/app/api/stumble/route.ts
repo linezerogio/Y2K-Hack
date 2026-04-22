@@ -1,7 +1,6 @@
 import { stumble } from '@/lib/worker';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
 
 export async function GET() {
   try {

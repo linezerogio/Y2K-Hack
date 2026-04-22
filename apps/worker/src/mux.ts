@@ -22,12 +22,12 @@
 const MUX_API = 'https://api.mux.com';
 
 export interface MuxEnv {
-  MUX_TOKEN_ID: string;
-  MUX_TOKEN_SECRET: string;
+  MUX_TOKEN_ID?: string;
+  MUX_TOKEN_SECRET?: string;
 }
 
 function authHeader(env: MuxEnv): string {
-  const b64 = btoa(`${env.MUX_TOKEN_ID}:${env.MUX_TOKEN_SECRET}`);
+  const b64 = btoa(`${env.MUX_TOKEN_ID ?? ''}:${env.MUX_TOKEN_SECRET ?? ''}`);
   return `Basic ${b64}`;
 }
 
@@ -39,6 +39,10 @@ export async function uploadRecordingToMux(
   env: MuxEnv,
   mp4: Uint8Array,
 ): Promise<string | null> {
+  if (!env.MUX_TOKEN_ID || !env.MUX_TOKEN_SECRET) {
+    console.warn('mux: credentials missing, skipping upload');
+    return null;
+  }
   try {
     // 1. Reserve a signed upload URL
     const createRes = await fetch(`${MUX_API}/video/v1/uploads`, {
