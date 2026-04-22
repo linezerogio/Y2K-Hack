@@ -37,6 +37,7 @@ export default {
     if (pathname === '/health') return handleHealth(env);
     if (pathname === '/stumble') return handleStumble(env);
     if (pathname === '/admin/smoke/sandbox') return handleSandboxSmoke(req, env);
+    if (pathname.startsWith('/admin/debug/transcript/')) return handleTranscript(req, env, pathname);
 
     const metaMatch = pathname.match(/^\/p\/([^/]+)\/meta$/);
     if (metaMatch) {
@@ -142,6 +143,24 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' },
+  });
+}
+
+async function handleTranscript(req: Request, env: Env, pathname: string): Promise<Response> {
+  const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+  if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) {
+    return json({ error: 'unauthorized' }, 401);
+  }
+  const personaId = pathname.slice('/admin/debug/transcript/'.length);
+  const { neon } = await import('@neondatabase/serverless');
+  const rows = (await neon(env.NEON_DATABASE_URL)`
+    SELECT version, sandbox_log FROM page_snapshots
+    WHERE persona_id = ${personaId}
+    ORDER BY version DESC LIMIT 1
+  `) as unknown as Array<{ version: number; sandbox_log: string }>;
+  if (!rows[0]) return json({ error: 'no snapshots' }, 404);
+  return new Response(rows[0].sandbox_log, {
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
   });
 }
 

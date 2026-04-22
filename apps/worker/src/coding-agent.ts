@@ -29,7 +29,7 @@ export interface AgentResult {
   tokenUsage: number;
 }
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-3-flash-preview';
 const MAX_ITERATIONS = 3;
 
 const TOOLS: FunctionDeclaration[] = [
@@ -109,10 +109,18 @@ export async function runCodingAgent(ctx: AgentContext): Promise<AgentResult> {
       break;
     }
 
-    contents.push({
-      role: 'model',
-      parts: calls.map((c) => ({ functionCall: c })),
-    });
+    // Echo the model's full content back verbatim — Gemini 3 requires
+    // `thoughtSignature` to round-trip with every function call, so we
+    // can't reconstruct from `functionCalls` alone.
+    const modelContent = response.candidates?.[0]?.content;
+    if (modelContent) {
+      contents.push(modelContent);
+    } else {
+      contents.push({
+        role: 'model',
+        parts: calls.map((c) => ({ functionCall: c })),
+      });
+    }
 
     const responseParts: Content['parts'] = [];
     let sawDone = false;
